@@ -6,7 +6,7 @@ It's meant to allow for more customizability after you've already exported a cha
 
 &nbsp;
 
-## Notable Features (these should be brief)
+## Notable Features (these should be brief) TODO
 - Material Dyes
 - Meddle Integration
 - Submaterial Textures
@@ -61,7 +61,7 @@ With characters exported using version 0.1.29 or later of Meddle, you need to ma
 
 &nbsp;
 
-## Full UI Explanation
+## Full UI Explanation TODO
 Explanation of the UI, material panel and preferences
 &nbsp;
 
@@ -69,12 +69,14 @@ Explanation of the UI, material panel and preferences
 
 ## Acknowledgements
 
-💖 [xivModdingFramework](https://github.com/TexTools/xivModdingFramework) and [Penumbra](https://github.com/xivdev/Penumbra) - Thanks for having all that code public so I could figure out how to read the silly FF files.
+💖 [xivModdingFramework](https://github.com/TexTools/xivModdingFramework) and [Penumbra](https://github.com/xivdev/Penumbra) - Thanks for having all that code public so I could figure out how to read the silly FF files!
 
-💖 [PassiveModding](https://github.com/PassiveModding) - Thanks for inspiring the whole project basically, and the incredible tool [Meddle](https://github.com/PassiveModding/Meddle), and for the code to check for new addon versions from inside Blender which I yoinked from [Meddle Tools](https://github.com/PassiveModding/MeddleTools), and for adding extra Dye ID data to Meddle exports when I asked for it so this project can integrate more seamlessly. 
+💖 [PassiveModding](https://github.com/PassiveModding) - Thanks for inspiring the whole project basically, and the incredible tool [Meddle](https://github.com/PassiveModding/Meddle), and for the code to check for new addon versions from inside Blender which I yoinked from [Meddle Tools](https://github.com/PassiveModding/MeddleTools), and for adding extra Dye ID data to Meddle exports when I asked for it so this project can integrate more seamlessly! 
 
-💖 [NotNite](https://github.com/NotNite/) - Thanks for [Alpha](https://github.com/NotNite/Alpha), making it really easy to find and dig up files I needed.
+💖 [NotNite](https://github.com/NotNite/) - Thanks for [Alpha](https://github.com/NotNite/Alpha), making it really easy to find and dig up files I needed!
 
-💖 [Chirp](https://github.com/chirpxiv) - Thanks for helping me with another project a while ago and for inspiring be to do cooler coding things. And for being a good friend :)
+💖 [ShinoMythmaker](https://github.com/Shinokage107) - Thanks for answering my questions about how you made the [MekTools](https://github.com/MekuMaki/Mektools) auto-update system!
+
+💖 [Chirp](https://github.com/chirpxiv) - Thanks for helping me with another project a while ago and for inspiring be to do cooler coding things! And for being a good friend :)
 
 💖 Everyone who has shown interest - Thank you to everyone who showed interest in the project or encouraged its development when I posted about it. It's been really cool, and warms my heart. Sorry it took so long lmao

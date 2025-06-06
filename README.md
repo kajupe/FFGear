@@ -6,11 +6,11 @@ It's meant to allow for more customizability after you've already exported a cha
 
 &nbsp;
 
-## Notable Features (these should be brief) TODO
-- Material Dyes
-- Meddle Integration
-- Submaterial Textures
-- Minimal Work, But Much Control (sliders, hidden outputs on the shader node)
+## Notable Features
+- Dye your gear directly in Blender!
+- Automatic setup for Meddle exports!
+- Submaterial Textures (the fabric details and stuff)!
+- A lot of artistic control!
 &nbsp;
 
 &nbsp;

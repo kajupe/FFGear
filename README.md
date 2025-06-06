@@ -69,7 +69,7 @@ Explanation of the UI, material panel and preferences
 
 ## Acknowledgements
 
-💖 [xivModdingFramework](https://github.com/TexTools/xivModdingFramework) and [Penumbra](https://github.com/xivdev/Penumbra) - Thanks for having all that code public so I could figure out how to read the silly FF files!
+💖 The [xivModdingFramework](https://github.com/TexTools/xivModdingFramework) and [Penumbra](https://github.com/xivdev/Penumbra) - Thanks for having all that code public so I could figure out how to read the silly FF files!
 
 💖 [PassiveModding](https://github.com/PassiveModding) - Thanks for inspiring the whole project basically, and the incredible tool [Meddle](https://github.com/PassiveModding/Meddle), and for the code to check for new addon versions from inside Blender which I yoinked from [Meddle Tools](https://github.com/PassiveModding/MeddleTools), and for adding extra Dye ID data to Meddle exports when I asked for it so this project can integrate more seamlessly! 
 

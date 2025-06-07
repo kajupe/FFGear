@@ -3,7 +3,7 @@
 <img src="images/ffgear_logo_small.png" alt="FFGear Logo" height="60rem">
 </p>
 
-FFGear is a Blender addon for handling FFXIV gear shading and (most notably) applying dyes to them directly in Blender.
+FFGear is a Blender addon for handling FFXIV gear shading and applying dyes to them directly in Blender.
 It allows for easily setting up shaders for [Meddle](https://github.com/PassiveModding/Meddle) exports (but will also work with other methods).
 It's meant to allow for more customizability after you've already exported a character.
 &nbsp;
@@ -54,7 +54,7 @@ With characters exported using version 0.1.29 or later of Meddle, you need to ma
 ## Limitations, Disclaimers & Good-to-know Info
 - It is important to note that these materials are an approximation to how they look in-game, so although it looks very similar it is not a 1:1 recreation. The goal of this project is, primarily, making it look good in Blender. To allow for extra artistic control, the FFGear Shader node group has plenty of user-accesible controls for simple tweaks, and all of the values the addon calculates are readily available in the shader graph for you to create your own shaders with if need be. If you want to change how this shader behaves by default you can edit it in the blend-file in the plugins "assets" folder.
 
-- The shaders will look best using Eevee. Blender does a good job at bridging the gap between the two, however Cycles lacks "proper" backface culling which results in many visual glitches on FFXIV models. A "Backface Culling" node is provided in the shader editor but it will likely not make a big difference. I recommend removing duplicate faces from your mesh manually if you plan on using Cycles.
+- The shaders will look best using Eevee. Blender does a good job at bridging the gap between its renderers, however Cycles lacks "proper" backface culling which results in many visual glitches on FFXIV models. A "Backface Culling" node is provided in the shader editor but it will likely not make a big difference. I recommend removing duplicate faces from your mesh manually if you plan on using Cycles. It's annoying, I know.
 
 - FFGear is not meant to work on anything other than gear shaders, such as skin or hair. It's meant to cover "character.shpk" and "characterlegacy.shpk" only. I recommend using [Meddle Tools](https://github.com/PassiveModding/MeddleTools) shaders for everything else, or making your own.
 

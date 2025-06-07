@@ -1,5 +1,5 @@
 <br>
-<p>
+<p align="center">
 <img src="images/ffgear_logo_small.png" alt="FFGear Logo" height="60rem">
 </p>
 

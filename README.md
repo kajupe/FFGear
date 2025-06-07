@@ -37,6 +37,8 @@ This should automatically set up shaders for all selected gear.
 Start by selecting each required file (mtrl and textures) in the Setup area. Then create a material with the button labeled "Create This Material". Shift-clicking will do this across multiple selected objects.
 
 To dye the item, use the Dye Colors area, select your dye(s) and click "Update Color Ramps". By default though, "Auto Update Dyes" is enabled for new materials which will automatically update your material when a dye is changed, so you don't have to press the button every time.
+
+For more information please check out the [Wiki](https://github.com/kajupe/FFGear/wiki) page!
 &nbsp;
 
 &nbsp;
@@ -61,12 +63,6 @@ With characters exported using version 0.1.29 or later of Meddle, you need to ma
 - I am by no means an expert programmer, if you find issues with the addon please inform me of them by [filing an issue](https://github.com/kajupe/FFGear/issues) here on github. I also made this over like six months on and off, and I was kind of shit at the start, my programming style changed a lot, and while I have refactored a lot of it a more experienced programmer will likely think this is a fucking mess. I agree with you, sorry :)
 
 - I have no idea if this works on Mac or Linux, I have only tested it on Windows 10. If you run into issues using Mac or Linux, [file an issue](https://github.com/kajupe/FFGear/issues) and make sure to include any errors the console spits out at you. Make sure to describe what you were doing to cause the issue, too.
-&nbsp;
-
-&nbsp;
-
-## Full UI Explanation TODO
-Explanation of the UI, material panel and preferences
 &nbsp;
 
 &nbsp;

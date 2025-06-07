@@ -146,7 +146,7 @@ class FFGearMaterialPanel(bpy.types.Panel):
                 row.operator("ffgear.install_update", text=f"Download & Auto-install", icon="IMPORT")
             else:
                 row.operator("ffgear.restart_blender", text="Restart Blender", icon="FILE_REFRESH")
-            row.operator("wm.url_open", text=f"Open Github Page", icon_value=icons.ffgear_ui_icons["github"].icon_id).url = "https://github.com/kajupe/FFGear/releases"
+            row.operator("wm.url_open", text=f"Open GitHub Page", icon_value=icons.ffgear_ui_icons["github"].icon_id).url = "https://github.com/kajupe/FFGear/releases"
             
 
 

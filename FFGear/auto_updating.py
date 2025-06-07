@@ -9,8 +9,6 @@ import sys
 import subprocess
 import logging
 
-import helpers
-
 logging.basicConfig()
 logger = logging.getLogger('FFGear.auto_updating')
 logger.setLevel(logging.INFO)

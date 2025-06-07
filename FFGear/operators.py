@@ -293,6 +293,7 @@ def find_textures_from_mtrl(mtrl_data: dict, search_dir: Path, recursive=False):
     # Process each texture from the MTRL
     for tex in textures:
         tex_name = Path(tex['path']).stem
+        logger.debug(f"Looking for texture name: {tex_name}")
         # Determine texture type and valid suffixes
         tex_type = None
         valid_suffixes = None
@@ -311,11 +312,12 @@ def find_textures_from_mtrl(mtrl_data: dict, search_dir: Path, recursive=False):
             valid_suffixes = ['id']
             
         if not valid_suffixes:
-            logger.warning("No valid suffix found for texture search, skipping texture.")
-            continue
+            logger.warning(f"No valid suffix found for texture search, skipping this texture: {tex_name}")
+            continue            
             
         # Also look for variants with .tex extension (for each already valid suffix, so 'n'.png will also check for 'n.tex'.png)
         valid_suffixes.extend(suffix+'.tex' for suffix in valid_suffixes.copy())
+        logger.debug(f"Valid suffixes for this texture: {valid_suffixes}")
 
         # Get base name without suffix
         for suffix in valid_suffixes:
@@ -330,10 +332,12 @@ def find_textures_from_mtrl(mtrl_data: dict, search_dir: Path, recursive=False):
                 continue
                 
             search_name = f"{tex_name}_{suffix}"
+            logger.debug(f"Searching for: {search_name}, in: {search_dir}")
             found_path = find_texture_file(search_dir, search_name, recursive)
 
         # Store result in appropriate variable
         if found_path != None:
+            logger.debug(f"Found texture path: {found_path}")
             if tex_type == 'diffuse':
                 diffuse_tex = found_path
             elif tex_type == 'mask':
@@ -342,6 +346,8 @@ def find_textures_from_mtrl(mtrl_data: dict, search_dir: Path, recursive=False):
                 norm_tex = found_path
             elif tex_type == 'id':
                 id_tex = found_path
+        else:
+            logger.debug(f"Could not find the texture in that directory.")
                 
     return diffuse_tex, mask_tex, norm_tex, id_tex
 
@@ -1563,6 +1569,7 @@ class FFGearFetchMtrlTextures(Operator):
         else:
             self.report({'ERROR'}, f"Couldn't find \"\cache\\\" in the mtrl filepath: {mtrl_filepath}")
             return {'CANCELLED'}
+        ##### What the fuck is happening here like does it HAVE to include cache??? It won't if it's like a textools export.
         
         try:
             # Read MTRL data
@@ -2064,7 +2071,7 @@ class FFGearUpdateDyedRamps(Operator):
     @classmethod
     def poll(cls, context):
         # Poll checking context for when the operator is called from the UI
-        return (context.material and
+        return (hasattr(context, 'material') and
                 context.material is not None and
                 hasattr(context.material, 'ffgear') and
                 context.material.ffgear.mtrl_filepath != "")

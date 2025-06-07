@@ -1,6 +1,10 @@
-# FFGear
+<br>
+<p>
+<img src="images/ffgear_logo_small.png" alt="FFGear Logo" height="60rem">
+</p>
+
 FFGear is a Blender addon for handling FFXIV gear shading and (most notably) applying dyes to them directly in Blender.
-It allows for easily setting up shaders for [Meddle](https://github.com/PassiveModding/Meddle) exports (but will also work with other methods).\
+It allows for easily setting up shaders for [Meddle](https://github.com/PassiveModding/Meddle) exports (but will also work with other methods).
 It's meant to allow for more customizability after you've already exported a character.
 &nbsp;
 

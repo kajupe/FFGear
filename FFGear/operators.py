@@ -1220,7 +1220,7 @@ def create_ffgear_material(source_material, local_template_material, hard_reset=
         
 
         # Get dyes if possible, we don't really care if it succeeds or fails
-        logger.debug("Attempting to get meddle dyes")
+        # logger.debug("Attempting to get meddle dyes")
         get_meddle_dyes(template_mat)
         # logger.debug("FINISHED: Attempting to get meddle dyes")
 
@@ -1536,7 +1536,6 @@ class FFGearFetchMtrlTextures(Operator):
                     context.material.ffgear.id_filepath = id_tex
                 
 
-
         # If we have directory input, this is the second stage after folder selection
         if self.directory and self.search_data:
             diffuse_tex, mask_tex, norm_tex, id_tex = find_textures_from_mtrl(
@@ -1562,14 +1561,13 @@ class FFGearFetchMtrlTextures(Operator):
         chache_dir = None
         mtrl_filepath = bpy.path.abspath(context.material.ffgear.mtrl_filepath)
         mtrl_directory = Path(mtrl_filepath).parent
+        # Check if any part of the path is "cache", we likely want to use that if that's the case
         if "\cache\\" in mtrl_filepath:
             index = mtrl_filepath.find("\cache\\")
             chache_dir = mtrl_filepath[:index + len("\cache\\")]
             logger.debug(f"Cache directory: {chache_dir}")
         else:
-            self.report({'ERROR'}, f"Couldn't find \"\cache\\\" in the mtrl filepath: {mtrl_filepath}")
-            return {'CANCELLED'}
-        ##### What the fuck is happening here like does it HAVE to include cache??? It won't if it's like a textools export.
+            logger.debug(f'Tried auto-detecting a path to check for textures in but couldn\'t find one with "\cache\\".')
         
         try:
             # Read MTRL data
@@ -1583,7 +1581,7 @@ class FFGearFetchMtrlTextures(Operator):
                 self.report({'INFO'}, "No textures found in MTRL file")
                 return {'FINISHED'}
             
-            # Try local directory first
+            # Try local directory first, but starting at "cache" if that exists in the path
             diffuse_tex, mask_tex, norm_tex, id_tex = find_textures_from_mtrl(
                 mtrl_data,
                 Path(chache_dir) if chache_dir else mtrl_directory,

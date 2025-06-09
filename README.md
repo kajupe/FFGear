@@ -1,6 +1,6 @@
 <br>
 <p align="center">
-<img src="images/ffgear_logo_small.png" alt="FFGear Logo" height="60rem">
+<img src="images/ffgear_logo_small_centered.png" alt="FFGear Logo" height="60rem">
 </p>
 
 FFGear is a Blender addon for handling FFXIV gear shading and applying dyes to them directly in Blender.

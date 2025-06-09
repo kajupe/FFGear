@@ -1268,7 +1268,7 @@ def create_ffgear_material(source_material, local_template_material, hard_reset=
         if len(template_mat.ffgear.linked_materials) == 0: template_mat.ffgear.link_dyes = False # Set linking as False if there weren't any, just to make it more visually apparent that it's not linked to anything else.
         # ^^^ Doing this causes the collect_linked_materials function to be run again, and dissolves any existing groups.
         template_mat.ffgear.is_created = True # Set material as created
-        return True, "", template_mat
+        return True, "" if shader_name in ("character.shpk", "characterlegacy.shpk") else "Shader is of an unsupported type, results may not be as expected!", template_mat
         
     except Exception as e:
         return False, str(e), None
@@ -1898,6 +1898,9 @@ class FFGearMeddleSetup(Operator):
 
         # Create FFGear material
         success, message, new_material = create_ffgear_material(material, local_template_material, False)
+
+        if success and message != "":
+            self.report({'WARNING'}, message)
 
         return success, message, new_material
 

@@ -1234,12 +1234,17 @@ def create_ffgear_material(source_material, local_template_material, hard_reset=
                 if not update_color_ramps(template_mat, mtrl_data):
                     logger.warning(f"Failed to update color ramps for {template_mat.name}")
                 apply_material_flags(template_mat, mtrl_data["material_flags"])
-
+                # Get shader type
+                shader_name = template_mat.get("ShaderPackage", None) # Try from meddle first since it's likely more accurate? Haven't seen mine fail yet but you never know 
+                if shader_name == None:
+                    shader_name = mtrl_data.get('shader_name', None) # Get from mtrl file
+                    if shader_name == None:
+                        logger.error(f"Failed to get shader type for this material: {template_mat.name}")
         
         # Update legacy-dependent settings
         logger.debug("Updating legacy-dependent settings")
         if mtrl_data and not material_is_ancient:
-            if mtrl_data.get('shader_name', '') == "characterlegacy.shpk":
+            if shader_name == "characterlegacy.shpk":
                 get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Legacy Roughness Tweak').default_value = 0.5 # Enable the Legacy Roughness Tweak in the Shader (lowers roughness where specular is high)
                 get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Specularity Mult').default_value = 1.5 # Increase the specular map a bit
                 get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Roughness Mult').default_value = 0.4 # Lower roughness is often better on legacy shaders

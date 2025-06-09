@@ -21,6 +21,12 @@ latest_version = "Unknown"
 class FFGEAR_AddonPreferences(AddonPreferences):
     bl_idname = __package__
 
+    disable_update_checking: BoolProperty(
+        name="Disable Update Checking",
+        description="Disables update checks when the addon loads",
+        default=False,
+    )
+
     disable_meteor_icon: BoolProperty(
         name="Disable Meteor Icon",
         description="Disables drawing the Meteor icon on the FFGear panel, in case you find it distracting",
@@ -46,12 +52,15 @@ class FFGEAR_AddonPreferences(AddonPreferences):
     )
     
     def draw(self, context):
+        prefs = context.preferences.addons[__package__].preferences
         # SETTINGS
         layout = self.layout
         box = layout.box()
         col = box.column()
+        col.prop(self, "disable_update_checking")
+        if prefs and not prefs.disable_update_checking:
+            col.prop(self, "disable_update_notif")
         col.prop(self, "disable_meteor_icon")
-        col.prop(self, "disable_update_notif")
         col.prop(self, "default_meddle_import_path")
 
         # INFO
@@ -76,10 +85,11 @@ class FFGEAR_AddonPreferences(AddonPreferences):
         row.operator("wm.url_open", text="Support Me", icon_value=icons.ffgear_ui_icons["kofi"].icon_id).url = "https://ko-fi.com/kaj_em"
 
         # VERSION CHECK
-        if latest_version != "Unknown" and current_version != "Unknown":
-        # if True:
+        
+        if prefs.disable_update_checking:
+            pass
+        elif latest_version != "Unknown" and current_version != "Unknown":
             if latest_version != current_version:
-            # if True:
                 box = layout.box()
                 col = box.column()
                 row = col.row()
@@ -100,11 +110,15 @@ class FFGEAR_AddonPreferences(AddonPreferences):
 
 
 def register():
-    # VERSION CHECK (code stolen from Meddle Tools)
     global current_version
     global latest_version
-    current_version, latest_version = helpers.get_addon_version_and_latest() # In other modules we can access the global variables in helpers directly instead of calling this again
+    
     bpy.utils.register_class(FFGEAR_AddonPreferences)
+
+    prefs = bpy.context.preferences.addons[__package__].preferences
+    # Only run the version check if the user has NOT disabled it
+    if not prefs.disable_update_checking:
+        current_version, latest_version = helpers.get_addon_version_and_latest()
 
 def unregister():
     bpy.utils.unregister_class(FFGEAR_AddonPreferences)

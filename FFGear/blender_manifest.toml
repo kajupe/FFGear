@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "FFGear"
-version = "0.2.2"
+version = "0.2.3"
 name = "FFGear"
 tagline = "Handles material creation for FFXIV gear"
 maintainer = "Kaj <kaj.blue>"
@@ -52,3 +52,4 @@ license = [
 
 [permissions]
 files = "Reads .mtrl, textures, and other bundled add-on files"
+network = "Checking for and downloading updates, can disable" 

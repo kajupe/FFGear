@@ -132,21 +132,21 @@ class FFGearMaterialPanel(bpy.types.Panel):
         current = helpers.current_version
         latest = helpers.latest_version
         latest_name = helpers.latest_version_name
-        if self.prefs and not self.prefs.disable_update_notif and current != latest and current != "Unknown" and latest != "Unknown":
-        # if True:
-            box = layout.box()
-            box.label(icon="ERROR", text=f"A new update to FFGear is available!")
-            col = box.column(align=True)
-            col.label(text=f"Installed: {current}")
-            col.label(text=f"Latest:      {latest}")
-            col.label(text=f"{latest_name}")
-            col = box.column()
-            row = col.row(align=False)
-            if not auto_updating.update_installed:
-                row.operator("ffgear.install_update", text=f"Download & Auto-install", icon="IMPORT")
-            else:
-                row.operator("ffgear.restart_blender", text="Restart Blender", icon="FILE_REFRESH")
-            row.operator("wm.url_open", text=f"Open GitHub Page", icon_value=icons.ffgear_ui_icons["github"].icon_id).url = "https://github.com/kajupe/FFGear/releases"
+        if self.prefs and not self.prefs.disable_update_checking:
+            if self.prefs and not self.prefs.disable_update_notif and current != latest and current != "Unknown" and latest != "Unknown":
+                box = layout.box()
+                box.label(icon="ERROR", text=f"A new update to FFGear is available!")
+                col = box.column(align=True)
+                col.label(text=f"Installed: {current}")
+                col.label(text=f"Latest:      {latest}")
+                col.label(text=f"{latest_name}")
+                col = box.column()
+                row = col.row(align=False)
+                if not auto_updating.update_installed:
+                    row.operator("ffgear.install_update", text=f"Download & Auto-install", icon="IMPORT")
+                else:
+                    row.operator("ffgear.restart_blender", text="Restart Blender", icon="FILE_REFRESH")
+                row.operator("wm.url_open", text=f"Open GitHub Page", icon_value=icons.ffgear_ui_icons["github"].icon_id).url = "https://github.com/kajupe/FFGear/releases"
             
 
 

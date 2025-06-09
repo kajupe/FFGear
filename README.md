@@ -28,13 +28,17 @@ It's meant to allow for more customizability after you've already exported a cha
 
 ## Usage
 Each material now has an "FFGear" tab, in which you'll see a "Setup" area and a "Dye Colors" area.
+&nbsp;  
+&nbsp; 
 
-**If your character has been exported with meddle:**\
-Import it and select all the relevant objects (an easy way to do this is to right-click the armature object and choose "Select Hierarchy", then shift-click an actual mesh to make it active and access the material tab again), then press the "Automatic Meddle Setup" button, then select the cache folder in your meddle export.
+**If your character has been exported with Meddle:**\
+Import it and select all the relevant objects, then press the "Automatic Meddle Setup" button, then select the cache folder in your meddle export.\
 This should automatically set up shaders for all selected gear.
 
 **If you want to do it the more manual way:**\
 Start by selecting each required file (mtrl and textures) in the Setup area. Then create a material with the button labeled "Create This Material". Shift-clicking will do this across multiple selected objects.
+&nbsp;  
+&nbsp; 
 
 To dye the item, use the Dye Colors area, select your dye(s) and click "Update Color Ramps". By default though, "Auto Update Dyes" is enabled for new materials which will automatically update your material when a dye is changed, so you don't have to press the button every time.
 

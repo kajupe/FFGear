@@ -1966,7 +1966,11 @@ class FFGearMeddleSetup(Operator):
             self.report({'INFO'}, f"Processed {len(source_materials)} materials across {scope}" + 
                     (f", skipped {skipped}" if skipped > 0 else ""))
         else:
-            self.report({'WARNING'}, "No materials were processed")
+            if self.mtrl_cache == {}:
+                # haha amogus ඞ
+                self.report({'WARNING'}, "No MTRL files found! Make sure those are cached in Meddle!")
+            else:
+                self.report({'WARNING'}, "No materials were processed")
             
         # # PROFILING END
         # pr.disable()

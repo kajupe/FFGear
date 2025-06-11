@@ -385,6 +385,18 @@ def get_textures_from_meddle_data(cache_dir, material):
     
     return diffuse_tex_path, mask_tex_path, norm_tex_path, id_tex_path
 
+def construct_false_meddle_mtrl_data(material):
+    """
+    Creates some mtrl data to use for material creation based on the ColorTable attribute in the Meddle data
+
+    Args:
+        material (material): The material that has the ColorTable, Material Flags, etc.
+
+    Returns:
+        mtrl_data (dict)
+    """
+    return 
+
 
 def apply_material_flags(material, flags):
     """
@@ -1119,6 +1131,14 @@ def create_ffgear_material(source_material, local_template_material, hard_reset=
     mtrl_data = None
     material_is_ancient = False
 
+    
+    meddle_color_table = source_material.get("ColorTable", None)
+    # if no mtrl path, skip
+    # UNLESS a meddle color table exists
+    if not (hasattr(source_material, "ffgear") and source_material.ffgear.mtrl_filepath) and not meddle_color_table:
+        logger.error(f"Got to create_ffgear_material but couldn't find a mtrl path or Meddle ColorTable, skipping: {source_material.name}")
+        return False, "No MTRL or ColorTable", None
+
     try:
         ##### Store Properties from Source Material #####
         old_ffgear_settings = {}
@@ -1852,7 +1872,7 @@ class FFGearMeddleSetup(Operator):
     def process_meddle_material(self, material, local_template_material, hard_reset=False):
         """Process a single material with Meddle setup"""
         if not material.name:
-            return False, "No material name"
+            return False, "No material name", None
 
         # Find MTRL file
         try:
@@ -1862,20 +1882,23 @@ class FFGearMeddleSetup(Operator):
             mtrl_path = self.find_mtrl_file(self.directory, material.name) # This old method often doesn't find modded .mtrl files, but that's because they literally just don't exist in old exports it seems.
         except Exception as e:
             logger.exception(f"Unknown exception reached when looking for MTRL file: {e}")
-            return False, "No MTRL file found"
+            return False, "No MTRL file found", None
         if not mtrl_path:
-            return False, "No MTRL file found"  
+            # Check if fake mtrl data can be constructed instead, happens in create_ffgear_material
+            logger.warning("No mtrl file found, proceeding anyways to try and use Meddle ColorTable data.")
+            pass
+            
 
         # Get texture paths from Meddle data on material
         diffuse_tex_path, mask_tex_path, norm_tex_path, id_tex_path = get_textures_from_meddle_data(self.directory, material)
         
         # If we couldn't get them using the modern meddle data method, try the old method
-        if diffuse_tex_path == None and id_tex_path == None and mask_tex_path == None and norm_tex_path == None:
+        if diffuse_tex_path == None and id_tex_path == None and mask_tex_path == None and norm_tex_path == None and mtrl_path:
             logger.warning(f"Failed to get texture paths from custom material properties on {material.name}, serching disk instead.")
             # Read MTRL data and find textures using shared function
             mtrl_data = mtrl_handler.read_mtrl_file(mtrl_path)
             if not mtrl_data:
-                return False, "Failed to read MTRL file"
+                return False, "Failed to read MTRL file", None
             diffuse_tex_path, mask_tex_path, norm_tex_path, id_tex_path = find_textures_from_mtrl(
                 mtrl_data, 
                 Path(self.directory),
@@ -1885,8 +1908,9 @@ class FFGearMeddleSetup(Operator):
         if diffuse_tex_path == None and id_tex_path == None and mask_tex_path == None and norm_tex_path == None:
             logger.warning(f"Still no textures found for {material.name}, but proceeding anyways! :D")
 
-        # Update material paths
-        material.ffgear.mtrl_filepath = mtrl_path
+        # Update paths on material
+        if mtrl_path:
+            material.ffgear.mtrl_filepath = mtrl_path
         if diffuse_tex_path:
             material.ffgear.diffuse_filepath = diffuse_tex_path
         if mask_tex_path:
@@ -2033,7 +2057,7 @@ class FFGearAutoMaterial(Operator):
                         materials_to_process.append(matslot.material)
         else:
             the_material = context.material
-            if hasattr(the_material, "ffgear") and material_name_is_valid(the_material.name): # In solo material cases you're allowed to create it without the mtrl filepath because why not, go for it, live your dreams
+            if hasattr(the_material, "ffgear") and material_name_is_valid(the_material.name) and matslot.material.ffgear.mtrl_filepath != "":
                 materials_to_process.append(the_material)
             
         def filter_func(mat):

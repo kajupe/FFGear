@@ -84,7 +84,7 @@ def extract_dye_flags(byte1: int, byte2: int) -> Dict[str, bool]:
 
 
 # Math yoinked from Penumbra. Handles the tile material transformation values. I hate this.
-def _decompose_tile_matrix(uu: float, uv: float, vu: float, vv: float) -> Dict[str, float]:
+def decompose_tile_matrix(uu: float, uv: float, vu: float, vv: float) -> Dict[str, float]:
     """
     Decomposes a 2x2 tile transformation matrix into scale, rotation, and shear.
     Assumes matrix elements uu, uv, vu, vv correspond to [a, b], [c, d].
@@ -297,7 +297,7 @@ def read_mtrl_file(filepath: str) -> Optional[Dict[str, Any]]:
                     tile_matrix_vv = read_le_half_float()
 
                     # Decompose the tile matrix
-                    tile_transform = _decompose_tile_matrix(
+                    tile_transform = decompose_tile_matrix(
                         tile_matrix_uu, tile_matrix_uv, tile_matrix_vu, tile_matrix_vv
                     )
 

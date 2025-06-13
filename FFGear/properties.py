@@ -465,6 +465,12 @@ class FFGearMaterialProperties(bpy.types.PropertyGroup):
         description="Whether this material has been created by FFGear",
         default=False
     )
+
+    created_without_mtrl: BoolProperty(
+        name="Created Without MTRL",
+        description="Whether this material was created using false mtrl data or not",
+        default=False
+    )
     
     mtrl_filepath: StringProperty(
         name="MTRL File",

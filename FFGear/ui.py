@@ -83,50 +83,64 @@ class FFGearMaterialPanel(bpy.types.Panel):
         if self.prefs.spheen:
             row.operator("ffgear.automaterial", 
                         text="Create This Material" if not is_created else "Reset This Material", 
-                        icon_value=icons.ffgear_ui_icons["spheen"].icon_id if self.prefs.spheen else 0)
+                        icon_value=icons.ffgear_ui_icons["spheen"].icon_id)
         else:
             row.operator("ffgear.automaterial", 
                         text="Create This Material" if not is_created else "Reset This Material", 
                         icon='NODE_MATERIAL')
 
 
-        # Dye Selection Box
-        box = layout.box()
-        box.label(text="Dye Colors:")
-        
-        col = box.column(align=True)
-        col.prop(material.ffgear, "dye_1")
-        col.prop(material.ffgear, "dye_2")
 
-        # Add update buttons if MTRL file is selected
-        if material.ffgear.mtrl_filepath:
-            col.separator()
-            row = col.row(align=True)
-            row.operator("ffgear.get_meddle_dyes", icon='EYEDROPPER', text="")
-            row.operator("ffgear.update_dyed_ramps", icon='FILE_REFRESH', text="Update Color Ramps")
-            current_auto_dye_status = material.ffgear.get("auto_update_dyes", True)
-            row.prop(material.ffgear, "auto_update_dyes", icon_value=icons.ffgear_ui_icons["auto_on"].icon_id if current_auto_dye_status else icons.ffgear_ui_icons["auto_off"].icon_id, text="")
-            current_link_dyes_status = material.ffgear.get("link_dyes", True)
-            row.prop(material.ffgear, "link_dyes", icon='DECORATE_LINKED' if current_link_dyes_status else 'UNLINKED', text="")
-
-        # Linked Materials panel (test)
-        linked_materials = material.ffgear.linked_materials
-        num_linked_materials = len(linked_materials)
-        if material.ffgear.link_dyes and material.ffgear.is_created:
+        if not material.ffgear.created_without_mtrl:
+            # Dye Selection Box
             box = layout.box()
-            box.label(icon="DECORATE_LINKED" if num_linked_materials > 0 else "UNLINKED", text="Linked To:")
-            col = box.column(align=True)
+            box.label(text="Dye Colors:")
             
-            if num_linked_materials > 0:
-                for item in material.ffgear.linked_materials:
-                    if isinstance(item.mat, bpy.types.Material):
-                        col.label(text="        "+item.mat.name)
-                    else:
-                        col.label(text="        A missing material!")
-            else:
-                col.label(text='        None :(')
-                col.label(text='        Links can only be established between')
-                col.label(text='        variants of the same material like "_a_" and "_b_"')
+            col = box.column(align=True)
+            col.prop(material.ffgear, "dye_1")
+            col.prop(material.ffgear, "dye_2")
+
+            # Add update buttons if MTRL file is selected
+            if material.ffgear.mtrl_filepath:
+                col.separator()
+                row = col.row(align=True)
+                row.operator("ffgear.get_meddle_dyes", icon='EYEDROPPER', text="")
+                row.operator("ffgear.update_dyed_ramps", icon='FILE_REFRESH', text="Update Color Ramps")
+                current_auto_dye_status = material.ffgear.get("auto_update_dyes", True)
+                row.prop(material.ffgear, "auto_update_dyes", icon_value=icons.ffgear_ui_icons["auto_on"].icon_id if current_auto_dye_status else icons.ffgear_ui_icons["auto_off"].icon_id, text="")
+                current_link_dyes_status = material.ffgear.get("link_dyes", True)
+                row.prop(material.ffgear, "link_dyes", icon='DECORATE_LINKED' if current_link_dyes_status else 'UNLINKED', text="")
+
+            # Linked Materials panel
+            linked_materials = material.ffgear.linked_materials
+            num_linked_materials = len(linked_materials)
+            if material.ffgear.link_dyes and material.ffgear.is_created:
+                box = layout.box()
+                box.label(icon="DECORATE_LINKED" if num_linked_materials > 0 else "UNLINKED", text="Linked To:")
+                col = box.column(align=True)
+                
+                if num_linked_materials > 0:
+                    for item in material.ffgear.linked_materials:
+                        if isinstance(item.mat, bpy.types.Material):
+                            col.label(text="        "+item.mat.name)
+                        else:
+                            col.label(text="        A missing material!")
+                else:
+                    col.label(text='        None :(')
+                    col.label(text='        Links can only be established between')
+                    col.label(text='        variants of the same material like "_a_" and "_b_"')
+
+
+
+        # Created Without MTRL File warning
+        else:
+            box = layout.box()
+            box.label(icon="ERROR", text=f"Material Created without MTRL File!")
+            col = box.column(align=True)
+            col.label(text=f"This material was created without access")
+            col.label(text=f"to real .mtrl data. Dyeing is disabled")
+            col.label(text=f"and results may look worse than desired.")
+
 
         # Update Notification
         current = helpers.current_version

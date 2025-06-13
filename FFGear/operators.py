@@ -385,7 +385,8 @@ def get_textures_from_meddle_data(cache_dir, material):
     
     return diffuse_tex_path, mask_tex_path, norm_tex_path, id_tex_path
 
-def construct_false_meddle_mtrl_data(material):
+
+def construct_false_meddle_mtrl_data(material: bpy.types.Material):
     """
     Creates some mtrl data to use for material creation based on the ColorTable attribute in the Meddle data
 
@@ -395,7 +396,118 @@ def construct_false_meddle_mtrl_data(material):
     Returns:
         mtrl_data (dict)
     """
-    return 
+
+    #¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
+    ### COLORSET DATA ### and colorset_type check
+    #¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
+
+    meddle_color_table = material.get("ColorTable")
+    if not meddle_color_table:
+        logger.error(f"Could not get ColorTable property from material: {material.name}")
+        return None
+
+    colorset_data = []
+
+    rows = meddle_color_table["ColorTable"]["Rows"]
+
+    num_rows = len(rows)
+    colorset_type = None
+    if num_rows == 32:
+        colorset_type = mtrl_handler.ColorsetType.DAWNTRAIL
+    elif num_rows == 16:
+        colorset_type = mtrl_handler.ColorsetType.ENDWALKER
+    else:
+        logger.error(f"Got an unexpected row count from ColorTable when constructing fake mtrl data: {num_rows}")
+        return None
+
+    row_num = 0
+    for row in rows:
+        
+        tile_matrix_uu, tile_matrix_uv, tile_matrix_vu, tile_matrix_vv = row["TileMatrix"].values()
+        # Decompose the tile matrix
+        tile_transform = mtrl_handler.decompose_tile_matrix(
+            tile_matrix_uu, tile_matrix_uv, tile_matrix_vu, tile_matrix_vv
+        )
+
+        row_data = {
+            'row_number': row_num+1,
+            'group': 'A' if row_num % 2 == 0 else 'B',
+            'diffuse': [x for x in row["Diffuse"].values()],
+            'diffuse_unknown': 0.5, # (Gloss) on legacy shaders, FFGear uses it as Roughness, Meddle does not provide it
+            'specular': [x for x in row["Specular"].values()],
+            'specular_unknown': 0.5, # (Specular Power) on legacy shaders, FFGear uses it as Sheen Rate, Meddle does not provide itd
+            'emissive': [x for x in row["Emissive"].values()],
+            'emissive_unknown': None,
+            'sheen_rate': row["SheenRate"],
+            'sheen_tint_rate': row["SheenTint"],
+            'sheen_aperture': row["SheenAptitude"], # May not be the correct mapping from Meddle but I think it is
+            'sheen_unknown': None,
+            'roughness': row["Roughness"],
+            'pbr_unknown': None,
+            'metalness': row["Metalness"],
+            'anisotropy_blending': row["Anisotropy"],
+            'effect_unknown_r': None,
+            'sphere_map_opacity': row["SphereMask"], # May not be the correct mapping from Meddle but I think it is
+            'effect_unknown_b': None,
+            'effect_unknown_a': None,
+            'shader_template_id': row["ShaderId"],
+            'tile_map_id': row["TileIndex"],
+            'tile_map_opacity': row["TileAlpha"],
+            'sphere_map_id': row["SphereIndex"],
+            'tile_scale_x': tile_transform['scale_x'],
+            'tile_scale_y': tile_transform['scale_y'],
+            'tile_rotation_deg': tile_transform['rotation_deg'],
+            'tile_shear_deg': tile_transform['shear_deg'],
+            'tile_matrix_raw': {'uu': tile_matrix_uu, 'uv': tile_matrix_uv, 'vu': tile_matrix_vu, 'vv': tile_matrix_vv}
+        }
+
+        colorset_data.append(row_data)
+        row_num += 1
+
+
+    #¤¤¤¤¤¤¤¤¤¤¤#
+    ### FLAGS ###
+    #¤¤¤¤¤¤¤¤¤¤¤#
+
+    # Initialize as 0, which is no flags
+    # Then add flags using bitwise OR operator |=
+    flags = mtrl_handler.MaterialFlags(0)
+
+    # Backface Culling
+    show_backfaces = material.get("RenderBackfaces", None)
+    if show_backfaces != None:
+        if not show_backfaces: # We want to hide them
+            flags |= mtrl_handler.MaterialFlags.HideBackfaces
+    else: # Couldn't get from meddle, assume we want to hide them
+        logger.warning(f"Couldn't read flag RenderBackfaces from Meddle data when constructing false mtrl data, hiding by default. Material: {material.name}")
+        flags |= mtrl_handler.MaterialFlags.HideBackfaces
+
+
+    #¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
+    ### TEXTURES ###
+    #¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
+
+    textures = []
+    potential_meddle_properties = ("g_SamplerDiffuse", "g_SamplerNormal", "g_SamplerMask", "g_SamplerIndex")
+    for prop in potential_meddle_properties:
+        prop_value = material.get(prop, None)
+        if prop_value != None:
+            textures.append({"path": prop_value, "flags": 0})
+
+
+    #¤¤¤¤¤¤¤¤¤¤¤#
+    ### FINAL ###
+    #¤¤¤¤¤¤¤¤¤¤¤#
+
+    mtrl_data = {
+        "colorset_data": colorset_data,
+        "material_flags": flags,
+        "shader_name": material.get("ShaderPackage", "Unknown"),
+        "textures": textures,
+        "colorset_type": colorset_type
+    }
+
+    return mtrl_data
 
 
 def apply_material_flags(material, flags):
@@ -1130,14 +1242,18 @@ def create_ffgear_material(source_material, local_template_material, hard_reset=
     template_mat = None
     mtrl_data = None
     material_is_ancient = False
+    false_mtrl_data = None
 
-    
-    meddle_color_table = source_material.get("ColorTable", None)
+
     # if no mtrl path, skip
-    # UNLESS a meddle color table exists
-    if not (hasattr(source_material, "ffgear") and source_material.ffgear.mtrl_filepath) and not meddle_color_table:
-        logger.error(f"Got to create_ffgear_material but couldn't find a mtrl path or Meddle ColorTable, skipping: {source_material.name}")
-        return False, "No MTRL or ColorTable", None
+    # UNLESS we got false data
+    if not (hasattr(source_material, "ffgear") and source_material.ffgear.mtrl_filepath != ""):
+        false_mtrl_data = construct_false_meddle_mtrl_data(source_material)
+        if false_mtrl_data:
+            logger.warning(f"This material had no mtrl file path but false mtrl data was constructed from Meddle properties: {source_material.name}")
+        else:
+            logger.error(f"Got to create_ffgear_material but couldn't find a mtrl path or construct false mtrl data, skipping: {source_material.name}")
+            return False, "No MTRL or False Mtrl Data", None
 
     try:
         ##### Store Properties from Source Material #####
@@ -1246,20 +1362,27 @@ def create_ffgear_material(source_material, local_template_material, hard_reset=
 
 
         ##### Color Ramps & Shader Settings #####
+        false_mtrl_data_is_used = False
         # Update color ramps and Material Flags if MTRL file is specified
-        if template_mat.ffgear.mtrl_filepath:
+        if template_mat.ffgear.mtrl_filepath or false_mtrl_data:
             mtrl_filepath = bpy.path.abspath(template_mat.ffgear.mtrl_filepath)
             mtrl_data = mtrl_handler.read_mtrl_file(mtrl_filepath)
+            if not mtrl_data:
+                mtrl_data = false_mtrl_data # Use false data constructed from meddle properties on the material, not ideal
+                false_mtrl_data_is_used = True
             if mtrl_data:
                 if not update_color_ramps(template_mat, mtrl_data):
                     logger.warning(f"Failed to update color ramps for {template_mat.name}")
                 apply_material_flags(template_mat, mtrl_data["material_flags"])
                 # Get shader type
-                shader_name = template_mat.get("ShaderPackage", None) # Try from meddle first since it's likely more accurate? Haven't seen mine fail yet but you never know 
+                shader_name = template_mat.get("ShaderPackage", None) # Try from meddle first since it's likely more accurate? Haven't seen mine fail yet but you never know
                 if shader_name == None:
                     shader_name = mtrl_data.get('shader_name', None) # Get from mtrl file
                     if shader_name == None:
                         logger.error(f"Failed to get shader type for this material: {template_mat.name}")
+        else:
+            logger.error(f"Somehow we got really far into create_ffgear_material without a mtrl filepath or false mtrl data. Returning False for template material: {template_mat.name}")
+            return False, "What the fuck?", None
         
         # Update legacy-dependent settings
         logger.debug("Updating legacy-dependent settings")
@@ -1288,7 +1411,15 @@ def create_ffgear_material(source_material, local_template_material, hard_reset=
         if len(template_mat.ffgear.linked_materials) == 0: template_mat.ffgear.link_dyes = False # Set linking as False if there weren't any, just to make it more visually apparent that it's not linked to anything else.
         # ^^^ Doing this causes the collect_linked_materials function to be run again, and dissolves any existing groups.
         template_mat.ffgear.is_created = True # Set material as created
-        return True, "" if shader_name in ("character.shpk", "characterlegacy.shpk") else "Shader is of an unsupported type, results may not be as expected!", template_mat
+        
+        if false_mtrl_data_is_used:
+            template_mat.ffgear.created_without_mtrl = True
+        
+        if shader_name:
+            message = "" if shader_name in ("character.shpk", "characterlegacy.shpk") else "Shader is of an unsupported type, results may not be as expected!"
+        else:
+            ""
+        return True, message, template_mat
         
     except Exception as e:
         return False, str(e), None

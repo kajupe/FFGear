@@ -100,7 +100,7 @@ class FFGEAR_AddonPreferences(AddonPreferences):
                     row.operator("ffgear.install_update", text=f"Download & Auto-install", icon="IMPORT")
                 else:
                     row.operator("ffgear.restart_blender", text="Restart Blender", icon="FILE_REFRESH")
-                row.operator("wm.url_open", text=f"Open GitHub Page", icon_value=icons.ffgear_ui_icons["github"].icon_id).url = "https://github.com/kajupe/FFGear/releases"
+                row.operator("wm.url_open", text=f"Open GitHub Page", icon_value=icons.ffgear_ui_icons["github"].icon_id).url = repo_release_download_url
         else:
             row = layout.row()
             row.label(text="Failed to check for updates")
@@ -118,8 +118,9 @@ def register():
     prefs = bpy.context.preferences.addons[__package__].preferences
     # Only run the version check if the user has NOT disabled it
     if not prefs.disable_update_checking:
-        bpy.app.timers.register(helpers.get_addon_version_and_latest, first_interval=2)
-        # current_version, latest_version = helpers.get_addon_version_and_latest()
+        bpy.app.timers.register(helpers.get_addon_version_and_latest, first_interval=2) # 2 second delay to avoid startup instability and update crashing
+        current_version = helpers.current_version
+        latest_version = helpers.latest_version
 
 def unregister():
     bpy.utils.unregister_class(FFGEAR_AddonPreferences)

@@ -1,25 +1,21 @@
 import bpy
 import requests
-import json
 import os
 import tempfile
-import shutil
-import zipfile
-import sys
-import subprocess
 import logging
 
 logging.basicConfig()
 logger = logging.getLogger('FFGear.auto_updating')
 logger.setLevel(logging.INFO)
 
-#¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
-# Thank you to the Mektools development team for the basis to much of this code #
-# https://github.com/MekuMaki/Mektools                                          #
-#¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
+#¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
+# Thank you to ShinoMythmaker for giving me tips on how to set this up #
+# https://github.com/Shinokage107                                      #
+#¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
 
 GITHUB_USER = "kajupe"
 GITHUB_REPO = "FFGear"
+GITHUB_BRANCH = "main"
 GITHUB_RAW_URL = f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}/"
 
 # Local manifest path
@@ -32,14 +28,50 @@ update_installed = False  # Tracks if an update was successfully installed
 
 
 
-class FFGearRestartBlender(bpy.types.Operator):
-    """Restart Blender, with confirmation for unsaved changes"""
-    bl_idname = "ffgear.restart_blender"
-    bl_label = "Restart Blender"
+#¤¤¤¤¤¤¤¤¤¤¤#
+# Functions #
+#¤¤¤¤¤¤¤¤¤¤¤#
 
-    confirm_discard_changes: bpy.props.BoolProperty(
-        name="Discard unsaved changes and restart",
-        description="If checked, Blender will restart even if there are unsaved changes (they will be lost).",
+def get_github_download_url(user, repo, branch):
+    """Return the path to a github zip file"""
+    return f"https://github.com/{user}/{repo}/archive/refs/heads/{branch}.zip"
+
+
+def download_addon(url: str, name: str = "download") -> str:
+    """Download the selected branch from GitHub and return the ZIP path."""
+    temp_dir = tempfile.mkdtemp()
+    zip_path = os.path.join(temp_dir, f"{name}.zip")
+
+    try:
+        response = requests.get(url, stream=True)
+        if response.status_code != 200:
+            logger.error(f"Failed to download {url}.")
+            return None
+
+        with open(zip_path, 'wb') as zip_file:
+            zip_file.write(response.content)
+
+    except Exception as e:
+        logger.exception(f"Download error: {e}")
+        return None
+
+    return zip_path
+
+
+
+#¤¤¤¤¤¤¤¤¤¤¤#
+# Operators #
+#¤¤¤¤¤¤¤¤¤¤¤#
+
+class FFGearInstallUpdate(bpy.types.Operator):
+    """Download and install the latest version of FFGear"""
+    bl_idname = "ffgear.install_update"
+    bl_label = "Install Update"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    proceed_anyways: bpy.props.BoolProperty(
+        name="Proceed anyways",
+        description="If checked, Blender will attempt the update even if there are unsaved changes (they may be lost if the update crashes).",
         default=False,
     )
 
@@ -57,109 +89,47 @@ class FFGearRestartBlender(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         layout.label(text="The current Blender file has unsaved changes.", icon='ERROR')
-        layout.label(text="Restarting will discard these changes if not saved.")
-        layout.prop(self, "confirm_discard_changes")
+        layout.label(text="It is recommended that you save before updating, just in case.")
+        layout.prop(self, "proceed_anyways")
 
 
     def execute(self, context):
         if bpy.data.is_dirty:
-            if not self.confirm_discard_changes:
-                self.report({'WARNING'}, "Restart cancelled. Confirmation to discard unsaved changes was not given.")
+            if not self.proceed_anyways:
+                self.report({'WARNING'}, "Update cancelled. Confirmation to proceed was not given.")
                 return {'CANCELLED'}
-            logger.info("User confirmed to discard unsaved changes. Proceeding with restart.")
+            logger.info("User confirmed to proceed with unsaved changes. Proceeding with update.")
         else:
-            logger.info("No unsaved changes detected. Proceeding with restart.")
-
-        # Get Blender executable path
-        blender_exe = sys.argv[0]  # This should point to Blender's executable
-
-        # Ensure the executable exists before proceeding
-        if not os.path.exists(blender_exe):
-            self.report({'ERROR'}, "Could not determine Blender executable path.")
-            return {'CANCELLED'}
-
-        # Restart Blender
-        try:
-            self.report({'INFO'}, "Attempting to launch new Blender instance...")
-            subprocess.Popen([blender_exe])  # Launch a new Blender process
-            self.report({'INFO'}, "New Blender instance launched. Closing current instance...")
-            bpy.ops.wm.quit_blender()  # Close current instance.
-        except Exception as e:
-            self.report({'ERROR'}, f"Failed to restart Blender: {e}")
-            return {'CANCELLED'}
-
-        return {'FINISHED'}
-
-
-
-class FFGearInstallUpdate(bpy.types.Operator):
-    """Download and install the latest version of FFGear"""
-    bl_idname = "ffgear.install_update"
-    bl_label = "Install Update"
-
-    def execute(self, context):
+            logger.info("No unsaved changes detected. Proceeding with update.")
+        
         global update_available, update_installed
-        
-        bpy.context.window.cursor_set('WAIT')
-        
-        # branch = local_manifest.get("feature_name", "main")
-        branch = "main" # Maybe change this later on to allow different branches? Selectable in preferences?
-        download_url = f"https://github.com/{GITHUB_USER}/{GITHUB_REPO}/archive/refs/heads/{branch}.zip"
 
-        # Download the update ZIP file
-        self.report({'INFO'}, "Downloading update...")
+        # Spinny Cursor
+        context.window.cursor_set('WAIT')
+
         try:
-            response = requests.get(download_url, stream=True)
-            if response.status_code != 200:
-                self.report({'ERROR'}, "Failed to download update.")
+            url = get_github_download_url(GITHUB_USER, GITHUB_REPO, GITHUB_BRANCH)
+            self.report({'INFO'}, "Downloading update...")
+            zip = download_addon(url, GITHUB_REPO)
+            
+            if zip == None:
+                self.report({'ERROR'}, f"Failed to download {GITHUB_REPO}.")
+                return {'CANCELLED'}
+
+            try:
+                self.report({'INFO'}, "Installing update...")
+                bpy.ops.extensions.package_install_files(directory=EXTENSIONS_PATH, filepath=zip, repo=extension_directory, url=url)
+                # self.report({'INFO'}, f"Installed {GITHUB_REPO}.")
+                update_installed = True
+                update_available = False
+            except Exception as e:
+                error_message = f"Failed to install {GITHUB_REPO}. Error: {str(e)}"
+                self.report({'ERROR'}, error_message)
                 return {'CANCELLED'}
             
-            # Save the file to a temporary location
-            temp_dir = tempfile.mkdtemp()
-            zip_path = os.path.join(temp_dir, "update.zip")
-
-            with open(zip_path, "wb") as f:
-                for chunk in response.iter_content(1024):
-                    f.write(chunk)
-        except Exception as e:
-            self.report({'ERROR'}, f"Download failed: {e}")
-            return {'CANCELLED'}
-
-
-        # Extract and replace the existing extension
-        self.report({'INFO'}, "Installing update...")
-
-        try:
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                extracted_folder = os.path.join(temp_dir, "ffgear_extracted")
-                zip_ref.extractall(extracted_folder)
-
-                # Locate the actual "FFGear" folder inside the extracted directory
-                extracted_main_folder = os.path.join(extracted_folder, os.listdir(extracted_folder)[0])  # This is "FFGear-main"
-                extracted_FFGEAR_FOLDER = os.path.join(extracted_main_folder, "FFGear")  # This is the actual extension
-
-                # Ensure the target extension folder exists
-                if not os.path.exists(FFGEAR_FOLDER):
-                    os.makedirs(FFGEAR_FOLDER)
-
-                # Remove the old version
-                shutil.rmtree(FFGEAR_FOLDER, ignore_errors=True)
-
-                # Move the inner "FFGear" folder to the correct location
-                shutil.move(extracted_FFGEAR_FOLDER, FFGEAR_FOLDER)
-
-        except Exception as e:
-            self.report({'ERROR'}, f"Installation failed: {e}")
-            return {'CANCELLED'}
-
-        # Mark update as installed and reset update_available
-        update_installed = True
-        update_available = False  # No more updates available
-
-        self.report({'INFO'}, "Update installed! Please restart Blender to apply changes.")
-        
-        bpy.context.window.cursor_set('DEFAULT')
-        return {'FINISHED'}
+            return {'FINISHED'}
+        finally:
+            context.window.cursor_set('DEFAULT')
 
 
 
@@ -168,9 +138,7 @@ class FFGearInstallUpdate(bpy.types.Operator):
 #¤¤¤¤¤¤¤¤¤¤¤¤¤#
 
 def register():
-    bpy.utils.register_class(FFGearRestartBlender)
     bpy.utils.register_class(FFGearInstallUpdate)
 
 def unregister():
     bpy.utils.unregister_class(FFGearInstallUpdate)
-    bpy.utils.unregister_class(FFGearRestartBlender)

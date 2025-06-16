@@ -353,7 +353,7 @@ def read_mtrl_file(filepath: str) -> Optional[Dict[str, Any]]:
                             dye_info = {
                                 'channel': ((b4 >> 3) & 0b11) + 1,
                                 'template': template_val,
-                                'flags': extract_dye_flags(b1, b2),
+                                'flags': extract_dye_flags(b1, b2), # dye_diffuse, dye_specular, etc
                                 'raw_bytes': {'hex': f'{b1:02x} {b2:02x} {b3:02x} {b4:02x}'} # Simplified raw bytes that I don't really know what they're for
                             }
                             if i < len(colorset_data):

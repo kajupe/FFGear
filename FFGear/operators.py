@@ -435,7 +435,7 @@ def construct_false_meddle_mtrl_data(material: bpy.types.Material):
             'diffuse': [x for x in row["Diffuse"].values()],
             'diffuse_unknown': 0.5, # (Gloss) on legacy shaders, FFGear uses it as Roughness, Meddle does not provide it
             'specular': [x for x in row["Specular"].values()],
-            'specular_unknown': 0.5, # (Specular Power) on legacy shaders, FFGear uses it as Sheen Rate, Meddle does not provide itd
+            'specular_unknown': 0.5, # (Specular Power) on legacy shaders, FFGear uses it as Sheen Rate, Meddle does not provide it
             'emissive': [x for x in row["Emissive"].values()],
             'emissive_unknown': None,
             'sheen_rate': row["SheenRate"],
@@ -905,17 +905,18 @@ def update_color_ramps(material, mtrl_data, hard_reset=False):
 
         # --- Pre-process colorset data ---
         # Group rows by the 'group' key for O(1) lookup later, instead of O(N) filtering per node.
-        grouped_colorset_data = collections.defaultdict(list)
+        # It's just each row put in a dict as a list under its group as the key. {"A": [row data], "B": [row data]}
+        grouped_mtrl_data = collections.defaultdict(list)
         for row in mtrl_data['colorset_data']:
-            group_key = row.get('group')
+            group_key = row.get('group') # "A" or "B"
             if group_key is not None:
-                 grouped_colorset_data[group_key].append(row)
+                 grouped_mtrl_data[group_key].append(row)
             else:
                  logger.warning(f"Row found without 'group' key in colorset_data: {row}")
 
         # List comprehension should be faster than doing it in the for loop?
-        nodes_to_process = [node for node in material.node_tree.nodes if node.type == 'VALTORGB']
-        prop_map_by_prefix = {prop.node_label: prop for prop in MTRL_PROPERTIES.values()}
+        nodes_to_process = [node for node in material.node_tree.nodes if node.type == 'VALTORGB'] # All color ramp nodes
+        prop_map_by_prefix = {prop.node_label: prop for prop in MTRL_PROPERTIES.values()} # Prefix being "Ramp 1", "Ramp 2", etc.
 
         ########## END INITIAL SETUP ##########
 
@@ -926,7 +927,7 @@ def update_color_ramps(material, mtrl_data, hard_reset=False):
         for node in nodes_to_process:
             # Find matching property definition for this node
             prop_def = None
-            node_label = node.label # Access label once
+            node_label = node.label
             # Attempt lookup using the pre-built map
             for prefix, prop in prop_map_by_prefix.items():
                  if node_label.startswith(prefix):
@@ -937,7 +938,7 @@ def update_color_ramps(material, mtrl_data, hard_reset=False):
                 logger.debug(f"No matching MTRL property found for node '{node_label}'")
                 continue
 
-            # Get group
+            # Get group (string, A or B)
             if '(Group ' not in node_label:
                 logger.warning(f"Node label '{node_label}' does not contain '(Group ..)' identifier.")
                 continue
@@ -946,13 +947,13 @@ def update_color_ramps(material, mtrl_data, hard_reset=False):
                 parts = node_label.split('(Group ')
                 if len(parts) < 2 or not parts[1].endswith(')'):
                      raise ValueError("Label format error")
-                group = parts[1].rstrip(')')
+                group:str = parts[1].rstrip(')')
             except Exception as e:
                 logger.warning(f"Could not extract group from node label '{node_label}': {e}")
                 continue
             
             # Get rows for this group, pre-grouped
-            group_rows = grouped_colorset_data.get(group) # O(1) lookup using the defaultdict
+            group_rows = grouped_mtrl_data.get(group) # O(1) lookup using the defaultdict
             if not group_rows:
                 logger.debug(f"No colorset data found for group '{group}' (from node '{node_label}')")
                 continue # Skip if this group has no data
@@ -973,15 +974,16 @@ def update_color_ramps(material, mtrl_data, hard_reset=False):
                 use_old_elements = False
             
             ##### LOOP OVER ALL THE ROWS, UPDATE THE RAMPS #####
+            # Each row is a mtrl row, row_data in the mtrl_handler
             debug_counter = 0
             for i, row in enumerate(group_rows):
 
                 ##### GET DYE INFO #####
                 dye_info = None
                 if 'dye' in row:
-                    dye_info = row['dye']
+                    dye_info = row['dye'] # Found as dye_info in the mtrl_handler
                     # Make sure template type is set for dye processing
-                    dye_info['template_type'] = template_type
+                    dye_info['template_type'] = template_type # dawntrail or endwalker
 
 
                 ##### DOES ANY OF THE RGBA FOR THIS ELEMENT EVEN NEED CHANGING DUE TO A DYE CHANGE #####

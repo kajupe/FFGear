@@ -95,11 +95,7 @@ class FFGEAR_AddonPreferences(AddonPreferences):
                 row = col.row()
                 row.label(icon="ERROR", text=f"New version available: {current_version} --> {latest_version}")
                 row = col.row()
-                # row.operator("wm.url_open", text="Download").url = repo_release_download_url
-                if not auto_updating.update_installed:
-                    row.operator("ffgear.install_update", text=f"Download & Auto-install", icon="IMPORT")
-                else:
-                    row.operator("ffgear.restart_blender", text="Restart Blender", icon="FILE_REFRESH")
+                row.operator("ffgear.install_update", text=f"Download & Auto-install", icon="IMPORT")
                 row.operator("wm.url_open", text=f"Open GitHub Page", icon_value=icons.ffgear_ui_icons["github"].icon_id).url = repo_release_download_url
         else:
             row = layout.row()

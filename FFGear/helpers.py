@@ -110,4 +110,5 @@ def get_addon_version_and_latest() -> Tuple[str, str]:
     except Exception as e:
         logger.warning(f"Failed to read current version: {e}")
 
-    return (current_version, latest_version)
+    # return (current_version, latest_version)
+    return None

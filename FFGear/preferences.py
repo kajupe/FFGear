@@ -118,7 +118,8 @@ def register():
     prefs = bpy.context.preferences.addons[__package__].preferences
     # Only run the version check if the user has NOT disabled it
     if not prefs.disable_update_checking:
-        current_version, latest_version = helpers.get_addon_version_and_latest()
+        bpy.app.timers.register(helpers.get_addon_version_and_latest, first_interval=2)
+        # current_version, latest_version = helpers.get_addon_version_and_latest()
 
 def unregister():
     bpy.utils.unregister_class(FFGEAR_AddonPreferences)

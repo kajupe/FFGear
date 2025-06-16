@@ -84,3 +84,8 @@ With characters exported using version 0.1.29 or later of Meddle, you need to ma
 💖 [Chirp](https://github.com/chirpxiv) - Thanks for helping me with another project a while ago and for inspiring be to do cooler coding things! And for being a good friend :)
 
 💖 Everyone who has shown interest - Thank you to everyone who showed interest in the project or encouraged its development when I posted about it. It's been really cool, and warms my heart. Sorry it took so long lmao
+
+---
+
+![A neon sign reading SHOW ME YOUR STUFF with an Au Ra to the right of it giving a thumbs up and smiling](images/ShowMeYourStuff.png)
+<h3 align="center">If you make something with my silly little addon I'd love to see it!<br>That would be really cool :)<br>Either tag @kaj.blue or use #FFGear on Bluesky and I'll see it <3</h3>

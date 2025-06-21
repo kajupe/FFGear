@@ -40,8 +40,6 @@ Start by selecting each required file (mtrl and textures) in the Setup area. The
 &nbsp;  
 &nbsp; 
 
-To dye the item, use the Dye Colors area, select your dye(s) and click "Update Color Ramps". By default though, "Auto Update Dyes" is enabled for new materials which will automatically update your material when a dye is changed, so you don't have to press the button every time.
-
 For more information please check out the [wiki](https://github.com/kajupe/FFGear/wiki)
 &nbsp;
 

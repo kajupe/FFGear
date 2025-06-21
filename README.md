@@ -79,7 +79,7 @@ With characters exported using version 0.1.29 or later of Meddle, you need to ma
 
 💖 [NotNite](https://github.com/NotNite/) - Thanks for [Alpha](https://github.com/NotNite/Alpha), making it really easy to find and dig up files I needed!
 
-💖 [ShinoMythmaker](https://github.com/Shinokage107) - Thanks for answering my questions about how you made the [MekTools](https://github.com/MekuMaki/Mektools) auto-update system!
+💖 [ShinoMythmaker](https://github.com/Shinokage107) - Thanks for answering my questions about how you made the [MekTools](https://github.com/MekuMaki/Mektools) auto-update system! And then letting me know how to make an even better version.
 
 💖 [Chirp](https://github.com/chirpxiv) - Thanks for helping me with another project a while ago and for inspiring be to do cooler coding things! And for being a good friend :)
 

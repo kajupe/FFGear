@@ -40,8 +40,6 @@ Start by selecting each required file (mtrl and textures) in the Setup area. The
 &nbsp;  
 &nbsp; 
 
-To dye the item, use the Dye Colors area, select your dye(s) and click "Update Color Ramps". By default though, "Auto Update Dyes" is enabled for new materials which will automatically update your material when a dye is changed, so you don't have to press the button every time.
-
 For more information please check out the [wiki](https://github.com/kajupe/FFGear/wiki)
 &nbsp;
 
@@ -79,7 +77,7 @@ With characters exported using version 0.1.29 or later of Meddle, you need to ma
 
 💖 [NotNite](https://github.com/NotNite/) - Thanks for [Alpha](https://github.com/NotNite/Alpha), making it really easy to find and dig up files I needed!
 
-💖 [ShinoMythmaker](https://github.com/Shinokage107) - Thanks for answering my questions about how you made the [MekTools](https://github.com/MekuMaki/Mektools) auto-update system!
+💖 [ShinoMythmaker](https://github.com/Shinokage107) - Thanks for answering my questions about how you made the [MekTools](https://github.com/MekuMaki/Mektools) auto-update system! And then letting me know how to make an even better version.
 
 💖 [Chirp](https://github.com/chirpxiv) - Thanks for helping me with another project a while ago and for inspiring be to do cooler coding things! And for being a good friend :)
 

@@ -11,8 +11,6 @@ from . import auto_updating
 
 repo_release_url = "https://api.github.com/repos/kajupe/FFGear/releases/latest"
 repo_release_download_url = "https://github.com/kajupe/FFGear/releases"
-current_version = "Unknown"
-latest_version = "Unknown"
 
 #¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
 # PREFERENCES
@@ -82,18 +80,23 @@ class FFGEAR_AddonPreferences(AddonPreferences):
         row = col.row()
         row.operator("wm.url_open", text="FFGear", icon_value=icons.ffgear_ui_icons["github"].icon_id).url = "https://github.com/kajupe/FFGear"
         row.operator("wm.url_open", text="Meddle", icon_value=icons.ffgear_ui_icons["github"].icon_id).url = "https://github.com/PassiveModding/Meddle"
+        row = col.row()
+        row.operator("wm.url_open", text="Wiki", icon="HELP").url = "https://github.com/kajupe/FFGear/wiki/Guides"
         row.operator("wm.url_open", text="Support Me", icon_value=icons.ffgear_ui_icons["kofi"].icon_id).url = "https://ko-fi.com/kaj_em"
 
         # VERSION CHECK
         
+        # Since update checking is delayed by 2s, this will be "Failed to check for updates" until that has happened.
+        # So like if someone is REALLY fast and goes into preferences in 2s then they'll get incorrect information.
+        # 0/10 addon literally unusable smh
         if prefs.disable_update_checking:
             pass
-        elif latest_version != "Unknown" and current_version != "Unknown":
-            if latest_version != current_version:
+        elif helpers.latest_version != "Unknown" and helpers.current_version != "Unknown":
+            if helpers.latest_version != helpers.current_version:
                 box = layout.box()
                 col = box.column()
                 row = col.row()
-                row.label(icon="ERROR", text=f"New version available: {current_version} --> {latest_version}")
+                row.label(icon="ERROR", text=f"New version available: {helpers.current_version} --> {helpers.latest_version}")
                 row = col.row()
                 row.operator("ffgear.install_update", text=f"Download & Auto-install", icon="IMPORT")
                 row.operator("wm.url_open", text=f"Open GitHub Page", icon_value=icons.ffgear_ui_icons["github"].icon_id).url = repo_release_download_url
@@ -106,8 +109,6 @@ class FFGEAR_AddonPreferences(AddonPreferences):
 
 
 def register():
-    global current_version
-    global latest_version
     
     bpy.utils.register_class(FFGEAR_AddonPreferences)
 
@@ -115,8 +116,6 @@ def register():
     # Only run the version check if the user has NOT disabled it
     if not prefs.disable_update_checking:
         bpy.app.timers.register(helpers.get_addon_version_and_latest, first_interval=2) # 2 second delay to avoid startup instability and update crashing
-        current_version = helpers.current_version
-        latest_version = helpers.latest_version
 
 def unregister():
     bpy.utils.unregister_class(FFGEAR_AddonPreferences)

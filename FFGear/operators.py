@@ -552,7 +552,7 @@ def apply_material_flags(material, flags):
     return modified
 
 
-def material_name_is_valid(material_name:str):
+def material_name_is_valid(material_name:str, allow_any_name:bool=False):
     """
     Checks if a string is a valid Meddle Material name. Supports pre and post Meddle 0.1.29 naming
     
@@ -563,6 +563,8 @@ def material_name_is_valid(material_name:str):
         bool: True if the string matches, otherwise False
     """
     if material_name:
+        if allow_any_name:
+            return True # For when creating materials manually, you pressed the button so now you will be held responsible
         if (('character.shpk' in material_name or 'characterlegacy.shpk' in material_name) or # 0.1.29 behavior
             ('_character_' in material_name or '_characterlegacy_' in material_name)): # pre 0.1.29 behavior
                 return True
@@ -2186,11 +2188,11 @@ class FFGearAutoMaterial(Operator):
         if affect_all_on_selected:
             for object in context.selected_objects:
                 for matslot in object.material_slots:
-                    if hasattr(matslot.material, "ffgear") and material_name_is_valid(matslot.material.name) and matslot.material.ffgear.mtrl_filepath != "":
+                    if hasattr(matslot.material, "ffgear") and material_name_is_valid(matslot.material.name, True) and matslot.material.ffgear.mtrl_filepath != "":
                         materials_to_process.append(matslot.material)
         else:
             the_material = context.material
-            if hasattr(the_material, "ffgear") and material_name_is_valid(the_material.name) and matslot.material.ffgear.mtrl_filepath != "":
+            if hasattr(the_material, "ffgear") and material_name_is_valid(the_material.name, True) and the_material.ffgear.mtrl_filepath != "":
                 materials_to_process.append(the_material)
             
         def filter_func(mat):

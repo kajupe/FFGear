@@ -25,6 +25,7 @@ logging.basicConfig()
 logger = logging.getLogger('FFGear.operators')
 logger.setLevel(logging.INFO) # Apparently the level above is a fucking sham and a fraud (oh I removed it at some point sick)
 
+supported_shaders = ('character', 'characterlegacy', 'charactertransparency') # These will be allowed when using the Meddle auto-setup
 
 ##### SIMPLE EXPLANATION ON HOW THE AUTO-SETUP WORKS #####
 # There are two different operators for automatically generating a material, the normal FFGearAutoMaterial operator and the FFGearMeddleSetup operator.
@@ -476,11 +477,11 @@ def construct_false_meddle_mtrl_data(material: bpy.types.Material):
     # Backface Culling
     show_backfaces = material.get("RenderBackfaces", None)
     if show_backfaces != None:
-        if not show_backfaces: # We want to hide them
-            flags |= mtrl_handler.MaterialFlags.HideBackfaces
+        if show_backfaces:
+            flags |= mtrl_handler.MaterialFlags.RenderBackfaces
     else: # Couldn't get from meddle, assume we want to hide them
         logger.warning(f"Couldn't read flag RenderBackfaces from Meddle data when constructing false mtrl data, hiding by default. Material: {material.name}")
-        flags |= mtrl_handler.MaterialFlags.HideBackfaces
+        flags |= mtrl_handler.MaterialFlags.RenderBackfaces
 
 
     #¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
@@ -528,17 +529,17 @@ def apply_material_flags(material, flags):
     
     # Keep track of all modifications for logging
     applied_flags = []
-    
+
     # Backface Culling
-    if MaterialFlags.HideBackfaces in flags:
+    if MaterialFlags.RenderBackfaces in flags:
+        material.use_backface_culling = False
+        applied_flags.append("RenderBackfaces -> Disabled backface culling")
+    else:
         material.use_backface_culling = True
         nodes = material.node_tree.nodes
         node = nodes.get("Backface Culling")
         if node:
             node.mute = False
-        applied_flags.append("HideBackfaces -> Enabled backface culling")
-    else:
-        material.use_backface_culling = False
     
     # Log the changes if any were made
     if applied_flags:
@@ -565,8 +566,8 @@ def material_name_is_valid(material_name:str, allow_any_name:bool=False):
     if material_name:
         if allow_any_name:
             return True # For when creating materials manually, you pressed the button so now you will be held responsible
-        if (('character.shpk' in material_name or 'characterlegacy.shpk' in material_name) or # 0.1.29 behavior
-            ('_character_' in material_name or '_characterlegacy_' in material_name)): # pre 0.1.29 behavior
+        if (any(shader_name+'.shpk' in material_name for shader_name in supported_shaders) or # 0.1.29 behavior
+            any('_'+shader_name+'_' in material_name for shader_name in supported_shaders)): # pre 0.1.29 behavior
                 return True
         else:
             return False
@@ -1300,8 +1301,6 @@ def create_ffgear_material(source_material, local_template_material, hard_reset=
         
 
         ##### Apply Settings and Properties #####
-        # Set material settings
-        template_mat.surface_render_method = 'DITHERED'
         
         # Apply old FFGear settings to new material
         logger.debug(f"Applying old material's FFGear settings to template material")
@@ -1407,8 +1406,11 @@ def create_ffgear_material(source_material, local_template_material, hard_reset=
             get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Minimum Roughness').default_value = 0.4
             get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Material Rgh Influence').default_value = 0
             get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Ancient').default_value = 1
-        # logger.debug("FINISHED: Updating legacy-dependent settings")
 
+        if shader_name == "charactertransparency.shpk":
+            template_mat.surface_render_method = 'BLENDED'
+        else:
+            template_mat.surface_render_method = 'DITHERED'
 
         ##### RETURN ETC #####
         properties.collect_linked_materials(template_mat) # Look for links (ideally should only be done after *all* materials are created but this works.)
@@ -1420,7 +1422,7 @@ def create_ffgear_material(source_material, local_template_material, hard_reset=
             template_mat.ffgear.created_without_mtrl = True
         
         if shader_name:
-            message = "" if shader_name in ("character.shpk", "characterlegacy.shpk") else "Shader is of an unsupported type, results may not be as expected!"
+            message = "" if shader_name in tuple(shader + '.shpk' for shader in supported_shaders) else "Shader is of an unsupported type, results may not be as expected!"
         else:
             ""
         return True, message, template_mat
@@ -2086,13 +2088,20 @@ class FFGearMeddleSetup(Operator):
         
         # First, collect all materials from selected objects that we want to process
         source_materials = set()
+        already_created_check = False
         for obj in context.selected_objects:
             for slot in obj.material_slots:
-                if (slot.material and material_name_is_valid(slot.material.name) and not slot.material.ffgear.is_created):
-                    source_materials.add(slot.material)
+                if (slot.material and material_name_is_valid(slot.material.name)):
+                    if slot.material.ffgear.is_created:
+                        already_created_check = True
+                    else:
+                        source_materials.add(slot.material)
 
         if not source_materials:
-            self.report({'WARNING'}, "No valid materials found on selected objects")
+            if already_created_check:
+                self.report({'WARNING'}, "Only found materials that are already created")
+            else:
+                self.report({'WARNING'}, "No valid materials found on selected objects")
             return {'CANCELLED'}
 
         # Get the objects to process these materials on

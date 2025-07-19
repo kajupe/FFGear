@@ -143,16 +143,14 @@ class FFGearMaterialPanel(bpy.types.Panel):
 
 
         # Update Notification
-        current = helpers.current_version
-        latest = helpers.latest_version
         latest_name = helpers.latest_version_name
         if self.prefs and not self.prefs.disable_update_checking:
-            if self.prefs and not self.prefs.disable_update_notif and current != latest and current != "Unknown" and latest != "Unknown":
+            if self.prefs and not self.prefs.disable_update_notif and helpers.current_version != helpers.latest_version and helpers.current_version != "Unknown" and helpers.latest_version != "Unknown":
                 box = layout.box()
                 box.label(icon="ERROR", text=f"A new update to FFGear is available!")
                 col = box.column(align=True)
-                col.label(text=f"Installed: {current}")
-                col.label(text=f"Latest:      {latest}")
+                col.label(text=f"Installed: {helpers.current_version}")
+                col.label(text=f"Latest:      {helpers.latest_version}")
                 col.label(text=f"{latest_name}")
                 col = box.column()
                 row = col.row(align=False)

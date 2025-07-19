@@ -4,6 +4,11 @@ from bpy.props import StringProperty, EnumProperty, BoolProperty
 from . import icons
 from . import helpers
 from . import auto_updating
+import logging
+
+logging.basicConfig()
+logger = logging.getLogger('FFGear.preferences')
+logger.setLevel(logging.INFO)
 
 #¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
 # DEFINITIONS
@@ -86,12 +91,15 @@ class FFGEAR_AddonPreferences(AddonPreferences):
 
         # VERSION CHECK
         
+
         # Since update checking is delayed by 2s, this will be "Failed to check for updates" until that has happened.
         # So like if someone is REALLY fast and goes into preferences in 2s then they'll get incorrect information.
         # 0/10 addon literally unusable smh
         if prefs.disable_update_checking:
             pass
+            logger.debug("Update checking is disabled, prefences not listing anything.")
         elif helpers.latest_version != "Unknown" and helpers.current_version != "Unknown":
+            logger.debug(f"Successfully compared these non-unknown versions: latest_version={helpers.latest_version} current_version={helpers.current_version}")
             if helpers.latest_version != helpers.current_version:
                 box = layout.box()
                 col = box.column()

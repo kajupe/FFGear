@@ -25,7 +25,7 @@ logging.basicConfig()
 logger = logging.getLogger('FFGear.operators')
 logger.setLevel(logging.INFO) # Apparently the level above is a fucking sham and a fraud (oh I removed it at some point sick)
 
-supported_shaders = ('character', 'characterlegacy', 'charactertransparency') # These will be allowed when using the Meddle auto-setup
+supported_shaders = ('character', 'characterlegacy', 'charactertransparency', 'characterstockings') # These will be allowed when using the Meddle auto-setup
 
 ##### SIMPLE EXPLANATION ON HOW THE AUTO-SETUP WORKS #####
 # There are two different operators for automatically generating a material, the normal FFGearAutoMaterial operator and the FFGearMeddleSetup operator.
@@ -478,10 +478,10 @@ def construct_false_meddle_mtrl_data(material: bpy.types.Material):
     show_backfaces = material.get("RenderBackfaces", None)
     if show_backfaces != None:
         if show_backfaces:
-            flags |= mtrl_handler.MaterialFlags.RenderBackfaces
+            flags |= mtrl_handler.MaterialFlags.HideBackfaces
     else: # Couldn't get from meddle, assume we want to hide them
         logger.warning(f"Couldn't read flag RenderBackfaces from Meddle data when constructing false mtrl data, hiding by default. Material: {material.name}")
-        flags |= mtrl_handler.MaterialFlags.RenderBackfaces
+        flags |= mtrl_handler.MaterialFlags.HideBackfaces
 
 
     #¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
@@ -531,15 +531,15 @@ def apply_material_flags(material, flags):
     applied_flags = []
 
     # Backface Culling
-    if MaterialFlags.RenderBackfaces in flags:
-        material.use_backface_culling = False
-        applied_flags.append("RenderBackfaces -> Disabled backface culling")
-    else:
+    if MaterialFlags.HideBackfaces in flags:
         material.use_backface_culling = True
         nodes = material.node_tree.nodes
         node = nodes.get("Backface Culling")
         if node:
             node.mute = False
+        applied_flags.append("HideBackfaces -> Enabled backface culling")
+    else:
+        material.use_backface_culling = False
     
     # Log the changes if any were made
     if applied_flags:
@@ -574,6 +574,132 @@ def material_name_is_valid(material_name:str, allow_any_name:bool=False):
     else:
         logger.warning(f"No name provided to material_name_is_valid function. Returning False")
         return False
+
+
+def find_related_skin_textures(objects):
+    """
+    Looks for skin textures among multiple objects
+    
+    Args:
+        objects (list): List of blender objects 
+        
+    Returns:
+        tuple (of blender image datablocks): diffuse_texture, normal_texture, mask_texture
+    """
+    # Of note regarding this: characterstocking.shpk is apparently hard-coded to always be "Skin Material A", which is the non-symmetrical one.
+    # https://xivmodding.com/books/ff14-asset-reference-document/page/dawntrail-shader-reference-table
+    # As such this search should prioritize that skin (should be named with a standalone "a" in the material and 1:2 aspect ratio)
+    
+    logger.debug(f"Looking for in-use skin textures among these objects: {[obj.name for obj in objects]}")
+    
+    diffuse_texture = None
+    normal_texture = None
+    mask_texture = None
+    
+    regex_a_pattern = r"(?<![a-zA-Z0-9])a(?![a-zA-Z0-9])" # An "a" without an alphabetical character or a number before or after it
+
+    for obj in objects:
+        logger.debug("Looking among objects with a standalone 'a' and 'skin' in the name.")
+        for matslot in obj.material_slots:
+            material = matslot.material
+            if "skin" in material.name.lower() and re.search(regex_a_pattern, material.name.lower()): # Search for A skin first
+                logger.debug(f"Material \"{material.name}\" matched! Checking for texture nodes.")
+                node_tree = material.node_tree
+                for node in node_tree.nodes:
+                    if node.type == 'TEX_IMAGE':
+                        logger.debug(f"Found image texture node: {node.name} (label: {node.label})")
+                        node_name_lower = node.name.lower()
+                        node_label_lower = node.label.lower()
+                        if "diffuse" in node_name_lower or "diffuse" in node_label_lower:
+                            diffuse_texture = node.image
+                            logger.debug("Found diffuse texture!")
+                        elif "normal" in node_name_lower or "normal" in node_label_lower:
+                            normal_texture = node.image
+                            logger.debug("Found normal texture!")
+                        elif "mask" in node_name_lower or "mask" in node_label_lower:
+                            mask_texture = node.image
+                            logger.debug("Found mask texture!")
+                        if diffuse_texture and normal_texture and mask_texture:
+                            logger.debug("Found all skin textures!")
+                            return diffuse_texture, normal_texture, mask_texture
+        logger.debug("Looking among objects WITHOUT a standalone 'a' but with 'skin' in the name.")
+        for matslot in obj.material_slots:
+            material = matslot.material
+            if "skin" in material.name.lower() and not re.search(regex_a_pattern, material.name.lower()): # Search all other skin materials after
+                logger.debug(f"Material \"{material.name}\" matched! Checking for texture nodes.")
+                node_tree = material.node_tree
+                for node in node_tree.nodes:
+                    if node.type == 'TEX_IMAGE':
+                        logger.debug(f"Found image texture node: {node.name}")
+                        node_name_lower = node.name.lower()
+                        if "diffuse" in node_name_lower or "diffuse" in node_label_lower:
+                            diffuse_texture = node.image
+                            logger.debug("Found diffuse texture!")
+                        elif "normal" in node_name_lower or "normal" in node_label_lower:
+                            normal_texture = node.image
+                            logger.debug("Found normal texture!")
+                        elif "mask" in node_name_lower or "mask" in node_label_lower:
+                            mask_texture = node.image
+                            logger.debug("Found mask texture!")
+                        if diffuse_texture and normal_texture and mask_texture:
+                            logger.debug("Found all skin textures!")
+                            return diffuse_texture, normal_texture, mask_texture
+    logger.debug(f"Did not find all skin textures but returning the ones we got")
+    return diffuse_texture, normal_texture, mask_texture
+
+
+def find_users_of_material(material):
+    """Returns a list of all objects that use the given material."""
+    # Not the most efficient thing in the world. Could potentially have it stop as soon as it finds the material or start by looking in specific collections?
+    if material.users == 0:
+        return []
+    
+    objects_with_material = []
+    
+    for obj in bpy.context.scene.objects:
+        # Skip objects that can't have materials
+        if not hasattr(obj.data, 'materials'):
+            continue
+            
+        # Skip if no material slots
+        if not obj.data.materials:
+            continue
+            
+        # Check material slots
+        for slot in obj.material_slots:
+            if slot.material is material:
+                objects_with_material.append(obj)
+                break
+    
+    return objects_with_material
+
+
+def disconnect_node_and_relink(node_tree, node_to_disconnect, primary_input_index=0, primary_output_index=0, delete_node=False):
+    """Disconnects a node in a node tree, repairing the connections it was attached to
+
+    Args:
+        node_tree (node tree): The material's node tree
+        node_to_disconnect (node): The node that gets disconnected
+        primary_input_index (int, optional): The index of the input index that should be used when re-linking to other nodes. Defaults to 0.
+        primary_output_index (int, optional): The index of the output index that should be used when re-linking to other nodes. Defaults to 0.
+        delete_node (bool, optional): If True the specified node will be deleted after having been disconnected. Defaults to False.
+    """
+    dnode_input = node_to_disconnect.inputs[primary_input_index]
+    dnode_output = node_to_disconnect.outputs[primary_output_index]
+    input_from_socket = dnode_input.links[0].from_socket # Incoming socket
+    output_to_sockets = [link.to_socket for link in dnode_output.links] # Target sockets
+    
+    for link in dnode_output.links:
+        node_tree.links.remove(link)
+    for link in dnode_input.links:
+        node_tree.links.remove(link)
+    
+    for output_socket in output_to_sockets:
+        node_tree.links.new(input_from_socket, output_socket)
+
+    if delete_node:
+        node_tree.nodes.remove(node_to_disconnect)
+
 
 
 
@@ -1062,7 +1188,7 @@ def update_color_ramps(material, mtrl_data, hard_reset=False):
         return False
 
 
-def setup_image_node(nodes, filepath, label):
+def setup_image_node(nodes, filepath, label, direct_img_datablock=False):
     """Setup an image texture node with the given parameters"""
     # Get existing node
     node = nodes.get(label)
@@ -1071,19 +1197,25 @@ def setup_image_node(nodes, filepath, label):
         return None
 
     if filepath:
-        # Check if image is already loaded
-        image_name = os.path.basename(filepath)
-        img = bpy.data.images.get(image_name)
-        if not img:
-            try:
-                # Load new image
-                img = bpy.data.images.load(bpy.path.abspath(filepath))
-                img.colorspace_settings.name = 'Non-Color'
-            except Exception as e:
-                logger.error(f"Error loading image {filepath}: {e}")
-                return node
+        if not direct_img_datablock:
+            # Check if image is already loaded
+            image_name = os.path.basename(filepath)
+            img = bpy.data.images.get(image_name)
+            if not img:
+                try:
+                    # Load new image
+                    img = bpy.data.images.load(bpy.path.abspath(filepath))
+                    img.colorspace_settings.name = 'Non-Color'
+                except Exception as e:
+                    logger.error(f"Error loading image {filepath}: {e}")
+                    return node
 
-        node.image = img
+            node.image = img
+        else:
+            try:
+                node.image = filepath
+            except Exception as e:
+                logger.error(f"Error setting up image node, direct image reference was not provided: {e}")
     
     return node
 
@@ -1220,12 +1352,6 @@ def cleanup_duplicate_images(material, hard_reset):
             rename_datablock_to_original(new_image, bpy.data.images) 
 
 
-def get_node_input_by_name(node, name):
-    for input in node.inputs:
-        if input.name.lower() == name.lower():
-            return input
-
-
 def create_ffgear_material(source_material, local_template_material, hard_reset=False):
     """
     Creates or resets a material based on an FFGear template, copying relevant properties
@@ -1332,6 +1458,37 @@ def create_ffgear_material(source_material, local_template_material, hard_reset=
         # logger.debug("FINISHED: Applying old custom props to new material")
 
 
+
+        # Get dyes if possible, we don't really care if it succeeds or fails
+        # logger.debug("Attempting to get meddle dyes")
+        get_meddle_dyes(template_mat)
+        # logger.debug("FINISHED: Attempting to get meddle dyes")
+
+        ##### Color Ramps & Shader Settings #####
+        false_mtrl_data_is_used = False
+        # Update color ramps and Material Flags if MTRL file is specified
+        if template_mat.ffgear.mtrl_filepath or false_mtrl_data:
+            mtrl_filepath = bpy.path.abspath(template_mat.ffgear.mtrl_filepath)
+            mtrl_data = mtrl_handler.read_mtrl_file(mtrl_filepath)
+            if not mtrl_data:
+                mtrl_data = false_mtrl_data # Use false data constructed from meddle properties on the material, not ideal
+                false_mtrl_data_is_used = True
+            if mtrl_data:
+                if not update_color_ramps(template_mat, mtrl_data):
+                    logger.warning(f"Failed to update color ramps for {template_mat.name}")
+                apply_material_flags(template_mat, mtrl_data["material_flags"])
+                # Get shader type
+                shader_name = template_mat.get("ShaderPackage", None) # Try from meddle first since it's likely more accurate? Haven't seen mine fail yet but you never know
+                if shader_name == None:
+                    shader_name = mtrl_data.get('shader_name', None) # Get from mtrl file
+                    if shader_name == None:
+                        logger.error(f"Failed to get shader type for this material: {template_mat.name}")
+        else:
+            logger.error(f"Somehow we got really far into create_ffgear_material without a mtrl filepath or false mtrl data. Returning False for template material: {template_mat.name}")
+            return False, "What the fuck?", None
+
+
+
         ##### Setup Texture Nodes #####
         logger.debug("Setting up texture nodes")
         nodes = template_mat.node_tree.nodes
@@ -1358,54 +1515,106 @@ def create_ffgear_material(source_material, local_template_material, hard_reset=
         # logger.debug("FINISHED: Setting up texture nodes")
         
 
-        # Get dyes if possible, we don't really care if it succeeds or fails
-        # logger.debug("Attempting to get meddle dyes")
-        get_meddle_dyes(template_mat)
-        # logger.debug("FINISHED: Attempting to get meddle dyes")
-
-
-        ##### Color Ramps & Shader Settings #####
-        false_mtrl_data_is_used = False
-        # Update color ramps and Material Flags if MTRL file is specified
-        if template_mat.ffgear.mtrl_filepath or false_mtrl_data:
-            mtrl_filepath = bpy.path.abspath(template_mat.ffgear.mtrl_filepath)
-            mtrl_data = mtrl_handler.read_mtrl_file(mtrl_filepath)
-            if not mtrl_data:
-                mtrl_data = false_mtrl_data # Use false data constructed from meddle properties on the material, not ideal
-                false_mtrl_data_is_used = True
-            if mtrl_data:
-                if not update_color_ramps(template_mat, mtrl_data):
-                    logger.warning(f"Failed to update color ramps for {template_mat.name}")
-                apply_material_flags(template_mat, mtrl_data["material_flags"])
-                # Get shader type
-                shader_name = template_mat.get("ShaderPackage", None) # Try from meddle first since it's likely more accurate? Haven't seen mine fail yet but you never know
-                if shader_name == None:
-                    shader_name = mtrl_data.get('shader_name', None) # Get from mtrl file
-                    if shader_name == None:
-                        logger.error(f"Failed to get shader type for this material: {template_mat.name}")
-        else:
-            logger.error(f"Somehow we got really far into create_ffgear_material without a mtrl filepath or false mtrl data. Returning False for template material: {template_mat.name}")
-            return False, "What the fuck?", None
         
+        ##### STOCKINGS #####
+        if shader_name == "characterstockings.shpk":
+
+            # Find skin textures
+            potential_parents = []
+            users_of_material = find_users_of_material(source_material) # Can't be template mat since that hasn't been applied to any objects yet
+            for user_of_material in users_of_material:
+                parent = user_of_material.parent
+                if parent:
+                    if not parent in potential_parents:
+                        potential_parents.append(parent) # potential_parents will in most cases just be a rig imported with the character
+            skin_diffuse_texture = None
+            skin_normal_texture = None
+            skin_mask_texture = None
+            for parent in potential_parents:
+                child_diffuse_texture, child_normal_texture, child_mask_texture = find_related_skin_textures(parent.children)
+                if child_diffuse_texture and not skin_diffuse_texture:
+                    skin_diffuse_texture = child_diffuse_texture
+                if child_normal_texture and not skin_normal_texture:
+                    skin_normal_texture = child_normal_texture
+                if child_mask_texture and not skin_mask_texture:
+                    skin_mask_texture = child_mask_texture
+        
+            # Set up texture nodes
+            if skin_diffuse_texture:
+                setup_image_node(nodes, skin_diffuse_texture, "SKIN DIFFUSE", direct_img_datablock=True)
+            if skin_normal_texture:
+                setup_image_node(nodes, skin_normal_texture, "SKIN NORMAL", direct_img_datablock=True)
+            if skin_mask_texture:
+                setup_image_node(nodes, skin_mask_texture, "SKIN MASK", direct_img_datablock=True)
+        
+            def _property_value_to_color(propval):
+                color_list = [num for num in propval]
+                while len(color_list) < 4:
+                    color_list.append(1.0)
+                if len(color_list) > 4:
+                    color_list = color_list[:4]
+                return tuple(color_list)
+
+            # Set skin and fur color
+            skin_shader_node = nodes.get("FFGear Simple Skin", None)
+            if skin_shader_node:
+                skin_color = template_mat.get("SkinColor", None)
+                if skin_color:
+                    skin_shader_node.inputs.get("Skin Color").default_value = _property_value_to_color(skin_color)
+
+                main_color = template_mat.get("MainColor", None)
+                if main_color:
+                    skin_shader_node.inputs.get("Fur Color").default_value = _property_value_to_color(main_color)
+
+                mesh_color = template_mat.get("MeshColor", None)
+                if mesh_color:
+                    skin_shader_node.inputs.get("Fur Highlight Color").default_value = _property_value_to_color(mesh_color)
+            else:
+                logger.error("Could not find the \"FFGear Simple Skin\" node in the material when attempting to create a characterstockings material!")
+                return False, "Could not find the \"FFGear Simple Skin\" node in the material!", None
+
+        else:
+            node_tree = template_mat.node_tree
+            # Shader is NOT characterstockings, remove a bunch of stuff
+            nodes_to_remove = ['CHARACTERSTOCKINGS_MIXVALUE', 'CHARACTERSTOCKINGS_REROUTE2', 'FFGear Simple Skin', 'SKIN DIFFUSE', 'SKIN MASK', 'SKIN NORMAL', 'Skin UV Map MEDDLE', 'Skin UV Map TEXTOOLS', 'CHARACTERSTOCKINGS_TEXT', 'CHARACTERSTOCKINGS_ADDUVS']
+            for name in nodes_to_remove:
+                nodes.remove(nodes.get(name))
+            disconnect_node_and_relink(node_tree, nodes.get('CHARACTERSTOCKINGS_MIXSHADER'), 2, 0, True)
+            disconnect_node_and_relink(node_tree, nodes.get('CHARACTERSTOCKINGS_REROUTE1'), 0, 0, True)
+        
+
+
+        ##### UPDATE MATERIAL SETTINGS #####
+        main_shader_node = template_mat.node_tree.nodes.get("FFGear Shader", None)
+        if not main_shader_node:
+            logger.error("Somehow, the main shader node (FFGear Shader) is gone")
+            return False, "FFGear Shader node is missing", None
+        main_shader_node_inputs = main_shader_node.inputs
+
         # Update legacy-dependent settings
         logger.debug("Updating legacy-dependent settings")
         if mtrl_data and not material_is_ancient:
             if shader_name == "characterlegacy.shpk":
-                get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Legacy Roughness Tweak').default_value = 0.5 # Enable the Legacy Roughness Tweak in the Shader (lowers roughness where specular is high)
-                get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Specularity Mult').default_value = 1.5 # Increase the specular map a bit
-                get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Roughness Mult').default_value = 0.4 # Lower roughness is often better on legacy shaders
-                get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Metallic Mult').default_value = 0 # Metallic should not be used on legacy shaders. Normally it's 0 anyways but just in case, I've seen it get an incorrect value when .mtrl is modded before.
-                get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Diffuse Gamma').default_value = 1.1 # Lower gamma a bit from 1.2 to brighten it since lower roughness often darkens
-                get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Minimum Roughness').default_value = 0.2 # Some legacy things become *too* shiny, though they're generally matte. This helps a little.
+                main_shader_node_inputs.get('Legacy Roughness Tweak').default_value = 0.5   # Enable the Legacy Roughness Tweak in the Shader (lowers roughness where specular is high)
+                main_shader_node_inputs.get('Specularity Mult').default_value = 1.5         # Increase the specular map a bit
+                main_shader_node_inputs.get('Roughness Mult').default_value = 0.4           # Lower roughness is often better on legacy shaders
+                main_shader_node_inputs.get('Metallic Mult').default_value = 0              # Metallic should not be used on legacy shaders. Normally it's 0 anyways but just in case, I've seen it get an incorrect value when .mtrl is modded before.
+                main_shader_node_inputs.get('Diffuse Gamma').default_value = 1.1            # Lower gamma a bit from 1.2 to brighten it since lower roughness often darkens
+                main_shader_node_inputs.get('Minimum Roughness').default_value = 0.2        # Some legacy things become *too* shiny, though they're generally matte. This helps a little.
+            
+            elif shader_name == "characterstockings.shpk":
+                main_shader_node_inputs.get('Roughness Mult').default_value = 0.75
+                main_shader_node_inputs.get('Override Alpha').default_value = 1
+                main_shader_node_inputs.get('Override Alpha Value').default_value = 1
 
         if material_is_ancient:
-            get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Specularity Mult').default_value = 1.5
-            get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Roughness Mult').default_value = 0.5
-            get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Metallic Mult').default_value = 0 
-            get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Diffuse Gamma').default_value = 1.1
-            get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Minimum Roughness').default_value = 0.4
-            get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Material Rgh Influence').default_value = 0
-            get_node_input_by_name(template_mat.node_tree.nodes["FFGear Shader"], 'Ancient').default_value = 1
+            main_shader_node_inputs.get('Specularity Mult').default_value = 1.5
+            main_shader_node_inputs.get('Roughness Mult').default_value = 0.5
+            main_shader_node_inputs.get('Metallic Mult').default_value = 0 
+            main_shader_node_inputs.get('Diffuse Gamma').default_value = 1.1
+            main_shader_node_inputs.get('Minimum Roughness').default_value = 0.4
+            main_shader_node_inputs.get('Material Rgh Influence').default_value = 0
+            main_shader_node_inputs.get('Ancient').default_value = 1
 
         if shader_name == "charactertransparency.shpk":
             template_mat.surface_render_method = 'BLENDED'
@@ -1428,10 +1637,13 @@ def create_ffgear_material(source_material, local_template_material, hard_reset=
         return True, message, template_mat
         
     except Exception as e:
+        logger.exception(f"Exception in create_ffgear_material: {str(e)}")
         return False, str(e), None
     
     finally:
         logger.debug("DONE: create_ffgear_material")
+
+
 
 
 #¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
@@ -1676,25 +1888,41 @@ class FFGearFetchMtrlTextures(Operator):
 
         def _set_paths_on_material(diffuse_tex=None, mask_tex=None, norm_tex=None, id_tex=None):
             # Convert to relative paths and set on material (or try to at least, fails if the drive is different or the blend file isn't saved)
+            # Nevermind it apparently DOESN'T fail if the file isn't saved??? Need to do that manually
             if diffuse_tex:
-                try:
-                    context.material.ffgear.diffuse_filepath = bpy.path.relpath(diffuse_tex)
-                except:
+                if bpy.data.is_saved:
+                    try:
+                        context.material.ffgear.diffuse_filepath = bpy.path.relpath(diffuse_tex)
+                    except:
+                        context.material.ffgear.diffuse_filepath = diffuse_tex
+                else:
                     context.material.ffgear.diffuse_filepath = diffuse_tex
+
             if mask_tex:
-                try:
-                    context.material.ffgear.mask_filepath = bpy.path.relpath(mask_tex)
-                except:
+                if bpy.data.is_saved:
+                    try:
+                        context.material.ffgear.mask_filepath = bpy.path.relpath(mask_tex)
+                    except:
+                        context.material.ffgear.mask_filepath = mask_tex
+                else:
                     context.material.ffgear.mask_filepath = mask_tex
+            
             if norm_tex:
-                try:
-                    context.material.ffgear.normal_filepath = bpy.path.relpath(norm_tex)
-                except:
+                if bpy.data.is_saved:
+                    try:
+                        context.material.ffgear.normal_filepath = bpy.path.relpath(norm_tex)
+                    except:
+                        context.material.ffgear.normal_filepath = norm_tex
+                else:
                     context.material.ffgear.normal_filepath = norm_tex
+            
             if id_tex:
-                try:
-                    context.material.ffgear.id_filepath = bpy.path.relpath(id_tex)
-                except:
+                if bpy.data.is_saved:
+                    try:
+                        context.material.ffgear.id_filepath = bpy.path.relpath(id_tex)
+                    except:
+                        context.material.ffgear.id_filepath = id_tex
+                else:
                     context.material.ffgear.id_filepath = id_tex
                 
 

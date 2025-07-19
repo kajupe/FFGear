@@ -23,7 +23,7 @@ from dataclasses import dataclass
 
 logging.basicConfig()
 logger = logging.getLogger('FFGear.operators')
-logger.setLevel(logging.DEBUG) # Apparently the level above is a fucking sham and a fraud (oh I removed it at some point sick)
+logger.setLevel(logging.INFO) # Apparently the level above is a fucking sham and a fraud (oh I removed it at some point sick)
 
 supported_shaders = ('character', 'characterlegacy', 'charactertransparency', 'characterstockings') # These will be allowed when using the Meddle auto-setup
 
@@ -589,6 +589,9 @@ def find_related_skin_textures(objects):
     # Of note regarding this: characterstocking.shpk is apparently hard-coded to always be "Skin Material A", which is the non-symmetrical one.
     # https://xivmodding.com/books/ff14-asset-reference-document/page/dawntrail-shader-reference-table
     # As such this search should prioritize that skin (should be named with a standalone "a" in the material and 1:2 aspect ratio)
+    
+    logger.debug(f"Looking for in-use skin textures among these objects: {[obj.name for obj in objects]}")
+    
     diffuse_texture = None
     normal_texture = None
     mask_texture = None
@@ -596,36 +599,52 @@ def find_related_skin_textures(objects):
     regex_a_pattern = r"(?<![a-zA-Z0-9])a(?![a-zA-Z0-9])" # An "a" without an alphabetical character or a number before or after it
 
     for obj in objects:
+        logger.debug("Looking among objects with a standalone 'a' and 'skin' in the name.")
         for matslot in obj.material_slots:
             material = matslot.material
             if "skin" in material.name.lower() and re.search(regex_a_pattern, material.name.lower()): # Search for A skin first
+                logger.debug(f"Material \"{material.name}\" matched! Checking for texture nodes.")
                 node_tree = material.node_tree
                 for node in node_tree.nodes:
                     if node.type == 'TEX_IMAGE':
+                        logger.debug(f"Found image texture node: {node.name} (label: {node.label})")
                         node_name_lower = node.name.lower()
-                        if "diffuse" in node_name_lower:
+                        node_label_lower = node.label.lower()
+                        if "diffuse" in node_name_lower or "diffuse" in node_label_lower:
                             diffuse_texture = node.image
-                        elif "normal" in node_name_lower:
+                            logger.debug("Found diffuse texture!")
+                        elif "normal" in node_name_lower or "normal" in node_label_lower:
                             normal_texture = node.image
-                        elif "mask" in node_name_lower:
+                            logger.debug("Found normal texture!")
+                        elif "mask" in node_name_lower or "mask" in node_label_lower:
                             mask_texture = node.image
+                            logger.debug("Found mask texture!")
                         if diffuse_texture and normal_texture and mask_texture:
+                            logger.debug("Found all skin textures!")
                             return diffuse_texture, normal_texture, mask_texture
+        logger.debug("Looking among objects WITHOUT a standalone 'a' but with 'skin' in the name.")
         for matslot in obj.material_slots:
             material = matslot.material
             if "skin" in material.name.lower() and not re.search(regex_a_pattern, material.name.lower()): # Search all other skin materials after
+                logger.debug(f"Material \"{material.name}\" matched! Checking for texture nodes.")
                 node_tree = material.node_tree
                 for node in node_tree.nodes:
                     if node.type == 'TEX_IMAGE':
+                        logger.debug(f"Found image texture node: {node.name}")
                         node_name_lower = node.name.lower()
-                        if "diffuse" in node_name_lower:
+                        if "diffuse" in node_name_lower or "diffuse" in node_label_lower:
                             diffuse_texture = node.image
-                        elif "normal" in node_name_lower:
+                            logger.debug("Found diffuse texture!")
+                        elif "normal" in node_name_lower or "normal" in node_label_lower:
                             normal_texture = node.image
-                        elif "mask" in node_name_lower:
+                            logger.debug("Found normal texture!")
+                        elif "mask" in node_name_lower or "mask" in node_label_lower:
                             mask_texture = node.image
+                            logger.debug("Found mask texture!")
                         if diffuse_texture and normal_texture and mask_texture:
+                            logger.debug("Found all skin textures!")
                             return diffuse_texture, normal_texture, mask_texture
+    logger.debug(f"Did not find all skin textures but returning the ones we got")
     return diffuse_texture, normal_texture, mask_texture
 
 

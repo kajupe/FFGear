@@ -16,7 +16,7 @@ logger.setLevel(logging.INFO)
 ###¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤###
 
 class MaterialFlags(Flag):
-    RenderBackfaces = 0x1
+    HideBackfaces = 0x1
     Bit1 = 0x2
     Bit2 = 0x4
     Bit3 = 0x8

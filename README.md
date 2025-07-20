@@ -85,6 +85,21 @@ With characters exported using version 0.1.29 or later of Meddle, you need to ma
 
 ---
 &nbsp;  
+## Made with FFGear
+![SmallExampleGallery](https://github.com/user-attachments/assets/08e6afe4-4a7d-4a2a-8cdf-66d58c78fd6a)
+
+<table>
+  <thead>
+    <tr>
+      <th width="1000px"><a href="https://bsky.app/profile/did:plc:3wmobtbg73jou6per5vabqoe">Ysera</a></th>
+      <th width="1000px"><a href="https://bsky.app/profile/did:plc:kwaxe66is2lxs3lx2tb5jis5">Hannish Miqo'te</a></th>
+      <th width="1000px"><a href="https://bsky.app/profile/did:plc:7ltezznqm223ktabgwztcczf">Kaj</a></th>
+    </tr>
+  </thead>
+</table>
+
+---
+&nbsp;  
 &nbsp; 
 
 ![A neon sign reading SHOW ME YOUR STUFF with an Au Ra to the right of it giving a thumbs up and smiling](images/ShowMeYourStuff.png)

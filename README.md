@@ -58,7 +58,7 @@ With characters exported using version 0.1.29 or later of Meddle, you need to ma
 
 - The shaders will look best using Eevee. Blender does a good job at bridging the gap between its renderers, however Cycles lacks "proper" backface culling which results in many visual glitches on FFXIV models. A "Backface Culling" node is provided in the shader editor but it will likely not make a big difference. I recommend removing duplicate faces from your mesh manually if you plan on using Cycles. It's annoying, I know.
 
-- FFGear is not meant to work on anything other than gear shaders, such as skin or hair. It's meant to cover "character.shpk" and "characterlegacy.shpk" only. I recommend using [Meddle Tools](https://github.com/PassiveModding/MeddleTools) shaders for everything else, or making your own.
+- FFGear is not meant to work on anything other than gear shaders, such as skin or hair. It's meant to cover "character.shpk", "characterlegacy.shpk", "charactertransparency.shpk" and "chracterstockings.shpk" only. I recommend using [Meddle Tools](https://github.com/PassiveModding/MeddleTools) shaders for everything else, or making your own.
 
 - Data from the mtrl file is not always placed into blender 1:1, meaning the code sometimes changes the values beforehand. As an example, the tile texture transformation matrix data is converted into more user-friendly values: scale, rotation and shear.
 

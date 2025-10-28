@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g., 1.0.0)'
+        description: 'Version number (e.g., 1.0.0, not with v)'
         required: true
         type: string
 
@@ -22,7 +22,7 @@ jobs:
         id: vars
         run: |
           echo "repo_name=$(basename $GITHUB_REPOSITORY)" >> $GITHUB_OUTPUT
-          echo "tag=v${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          echo "tag=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
 
       - name: Create ZIP archive
         run: |

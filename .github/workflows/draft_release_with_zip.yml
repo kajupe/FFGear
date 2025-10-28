@@ -1,0 +1,48 @@
+name: Create draft release and attach ZIP
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Get repo name and prepare tag
+        id: vars
+        run: |
+          echo "repo_name=$(basename $GITHUB_REPOSITORY)" >> $GITHUB_OUTPUT
+          echo "tag=v${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+
+      - name: Create ZIP archive
+        run: |
+          set -e
+          zipfile="${{ steps.vars.outputs.repo_name }}-${{ steps.vars.outputs.tag }}.zip"
+          cd FFGear
+          zip -r "../$zipfile" .
+          cd ..
+          echo "ZIP file created: $zipfile"
+
+      - name: Create tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.vars.outputs.tag }}"
+          git push origin "${{ steps.vars.outputs.tag }}"
+
+      - name: Create draft release and upload ZIP
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          zipfile="${{ steps.vars.outputs.repo_name }}-${{ steps.vars.outputs.tag }}.zip"
+          gh release create "${{ steps.vars.outputs.tag }}" "$zipfile" --draft --title "${{ steps.vars.outputs.tag }}"

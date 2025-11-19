@@ -1,6 +1,7 @@
 import struct
 import math
 import logging
+from . import helpers
 from io import BytesIO
 from enum import Flag, Enum
 from typing import List, Optional, Dict, Any
@@ -153,6 +154,7 @@ def read_mtrl_file(filepath: str) -> Optional[Dict[str, Any]]:
         mtrl_data (dict): A dictionary containing the parsed data, or None if an error occurs.
     """
     try:
+        filepath = helpers.safe_filepath(filepath)
         with open(filepath, 'rb') as f:
             data = f.read()
     except FileNotFoundError:
@@ -249,52 +251,52 @@ def read_mtrl_file(filepath: str) -> Optional[Dict[str, Any]]:
                 # Read colorset rows
                 for i in range(row_count):
                     # DIFFUSE
-                    diffuse_r = read_le_half_float()
-                    diffuse_g = read_le_half_float()
-                    diffuse_b = read_le_half_float()
-                    diffuse_unknown = read_le_half_float()
+                    diffuse_r = read_le_half_float()            # 0
+                    diffuse_g = read_le_half_float()            # 1
+                    diffuse_b = read_le_half_float()            # 2
+                    diffuse_unknown = read_le_half_float()      # 3, Gloss Strength (Legacy)
 
                     # SPECULAR
-                    specular_r = read_le_half_float()
-                    specular_g = read_le_half_float()
-                    specular_b = read_le_half_float()
-                    specular_unknown = read_le_half_float()
+                    specular_r = read_le_half_float()           # 4
+                    specular_g = read_le_half_float()           # 5
+                    specular_b = read_le_half_float()           # 6
+                    specular_unknown = read_le_half_float()     # 7, Specular Strength/Power (Legacy)
 
                     # EMISSIVE
-                    emissive_r = read_le_half_float()
-                    emissive_g = read_le_half_float()
-                    emissive_b = read_le_half_float()
-                    emissive_unknown = read_le_half_float()
+                    emissive_r = read_le_half_float()           # 8
+                    emissive_g = read_le_half_float()           # 9
+                    emissive_b = read_le_half_float()           # 10
+                    emissive_unknown = read_le_half_float()     # 11
 
                     # SHEEN
-                    sheen_rate = read_le_half_float()
-                    sheen_tint_rate = read_le_half_float()
-                    sheen_aperture = read_le_half_float()
-                    sheen_unknown = read_le_half_float()
+                    sheen_rate = read_le_half_float()           # 12
+                    sheen_tint_rate = read_le_half_float()      # 13
+                    sheen_aperture = read_le_half_float()       # 14, Could also be Sheen Aptitude but whatever
+                    sheen_unknown = read_le_half_float()        # 15
 
                     # PBR
-                    roughness = read_le_half_float()
-                    pbr_unknown = read_le_half_float()
-                    metalness = read_le_half_float()
-                    anisotropy_blending = read_le_half_float()
+                    roughness = read_le_half_float()            # 16
+                    pbr_unknown = read_le_half_float()          # 17
+                    metalness = read_le_half_float()            # 18
+                    anisotropy_blending = read_le_half_float()  # 19
 
                     # WEIRD SHIT
-                    effect_unknown_r = read_le_half_float()
-                    sphere_map_opacity = read_le_half_float()
-                    effect_unknown_b = read_le_half_float()
-                    effect_unknown_a = read_le_half_float()
+                    effect_unknown_r = read_le_half_float()     # 20
+                    sphere_map_opacity = read_le_half_float()   # 21
+                    effect_unknown_b = read_le_half_float()     # 22
+                    effect_unknown_a = read_le_half_float()     # 23
 
                     # IDs AND STUFF
-                    shader_template_id = read_le_half_float()
-                    tile_map_id_raw = read_le_half_float()
-                    tile_map_opacity = read_le_half_float()
-                    sphere_map_id = read_le_half_float()
+                    shader_template_id = read_le_half_float()   # 24
+                    tile_map_id_raw = read_le_half_float()      # 25
+                    tile_map_opacity = read_le_half_float()     # 26
+                    sphere_map_id = read_le_half_float()        # 27
 
                     # RAW TILE TRANSFORM DATA
-                    tile_matrix_uu = read_le_half_float()
-                    tile_matrix_uv = read_le_half_float()
-                    tile_matrix_vu = read_le_half_float()
-                    tile_matrix_vv = read_le_half_float()
+                    tile_matrix_uu = read_le_half_float()       # 28
+                    tile_matrix_uv = read_le_half_float()       # 29
+                    tile_matrix_vu = read_le_half_float()       # 30
+                    tile_matrix_vv = read_le_half_float()       # 31
 
                     # Decompose the tile matrix
                     tile_transform = decompose_tile_matrix(

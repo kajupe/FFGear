@@ -1,6 +1,7 @@
 import string
 import requests
 import addon_utils
+import os
 import logging
 from typing import Tuple
 
@@ -112,3 +113,19 @@ def get_addon_version_and_latest() -> Tuple[str, str]:
 
     # return (current_version, latest_version)
     return None
+
+
+def safe_filepath(filepath:str) -> str:
+    """Ensures filepaths are functional, by adding a long-path prefix on windows if needed, etc.
+
+    Args:
+        filepath (str): The filepath
+
+    Returns:
+        str: The new filepath
+    """
+    # Convert to absolute path and add Windows long path prefix
+    if len(filepath) > 260 and os.name == 'nt':
+        filepath = '\\\\?\\' + os.path.abspath(filepath)
+
+    return filepath

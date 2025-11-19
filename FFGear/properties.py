@@ -326,7 +326,7 @@ def sync_dyes_in_group(self, context):
             if not isinstance(item.mat, Material):
                 logger.warning(f"An item among the linked materials of {triggering_mat.name} did not contain a material. An attempt to filter it out will be made. Dyeing might behave unexpectedly.")
         safe_group_of_material_items = [item for item in triggering_props.linked_materials if isinstance(item.mat, Material)]
-        print(f"safe_group: {safe_group_of_material_items}")
+        logger.debug(f"safe_group: {safe_group_of_material_items}")
 
 
         logger.debug(f"Syncing dye values in this group: {[item.mat.name for item in safe_group_of_material_items]}")

@@ -14,7 +14,7 @@
         "SPDX:GPL-3.0-or-later"
       ],
       "blender_version_min": "4.2.0",
-      "blender_version_max": "",
+      "blender_version_max": "6.0.0",
       "website": "https://github.com/kajupe/FFGear/",
       "permissions": {
         "files": "Reads .mtrl, textures, and other bundled add-on files",
@@ -23,9 +23,9 @@
       "tags": [
         "Material"
       ],
-      "archive_url": "https://github.com/kajupe/FFGear/releases/download/1.1.0/FFGear-1.1.0.zip",
-      "archive_size": 1680461,
-      "archive_hash": "sha256:4cd1f5f8aebb0f5cce1b27f39607fd3774fc2f64b6a251118b31622b5c0b551c"
+      "archive_url": "https://github.com/kajupe/FFGear/releases/download/1.1.1/FFGear-1.1.1.zip",
+      "archive_size": 1690446,
+      "archive_hash": "sha256:30f138cf6c278a4fec22797a8f7196bc3a508d0af0428f08f8f831a723be9f01"
     }
   ]
 }

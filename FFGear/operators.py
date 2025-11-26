@@ -1202,10 +1202,14 @@ def setup_image_node(nodes, filepath, label, direct_img_datablock=False):
             image_name = os.path.basename(filepath)
             img = bpy.data.images.get(image_name)
             if not img:
+                filepath = helpers.safe_filepath(filepath) # This will help the image LOAD, but cycles will not like it. The image has to be packed.
                 try:
                     # Load new image
                     img = bpy.data.images.load(bpy.path.abspath(filepath))
                     img.colorspace_settings.name = 'Non-Color'
+                    if len(filepath) > 260 and os.name == 'nt':
+                        img.pack() # Image has to be packed for Cycles to recognize it if it's too long on Windows
+                        logger.warning(f"The following image's file path was too long for Windows, and had to be packed in the Blend file to ensure Cycles would recognize it: {filepath}")
                 except Exception as e:
                     logger.error(f"Error loading image {filepath}: {e}")
                     return node
@@ -1728,7 +1732,7 @@ class FFGearOpenDiffuseTextureBrowser(Operator):
                 if os.path.exists(abs_path):
                     self.filepath = abs_path
         except Exception as e:
-             logger.exception(f"Could not access 'context.material.ffgear.diffuse_filepath'. Error: {e}")
+             logger.exception(f"Could not access 'context.material.ffgear.diffuse_filepath'.")
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 

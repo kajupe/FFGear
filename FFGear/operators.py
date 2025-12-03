@@ -576,7 +576,7 @@ def material_name_is_valid(material_name:str, allow_any_name:bool=False):
         return False
 
 
-def find_related_skin_textures(objects):
+def find_related_skin_textures(objects:List[bpy.types.Object]):
     """
     Looks for skin textures among multiple objects
     
@@ -590,71 +590,127 @@ def find_related_skin_textures(objects):
     # https://xivmodding.com/books/ff14-asset-reference-document/page/dawntrail-shader-reference-table
     # As such this search should prioritize that skin (should be named with a standalone "a" in the material and 1:2 aspect ratio)
     
-    logger.debug(f"Looking for in-use skin textures among these objects: {[obj.name for obj in objects]}")
+    logger.debug(f"Looking for in-use skin textures among these objects' materials: {[obj.name for obj in objects]}")
     
-    diffuse_texture = None
-    normal_texture = None
-    mask_texture = None
+    diffuse_texture:bpy.types.Image = None
+    normal_texture:bpy.types.Image = None
+    mask_texture:bpy.types.Image = None
     
     regex_a_pattern = r"(?<![a-zA-Z0-9])a(?![a-zA-Z0-9])" # An "a" without an alphabetical character or a number before or after it
 
+    # Create a list of all materials the objects have with "skin" in the name (case insensitive)
+    all_potential_skin_materials:List[bpy.types.Material] = []
     for obj in objects:
-        logger.debug("Looking among objects with a standalone 'a' and 'skin' in the name.")
         for matslot in obj.material_slots:
-            material = matslot.material
-            if "skin" in material.name.lower() and re.search(regex_a_pattern, material.name.lower()): # Search for A skin first
-                logger.debug(f"Material \"{material.name}\" matched! Checking for texture nodes.")
-                node_tree = material.node_tree
-                for node in node_tree.nodes:
-                    if node.type == 'TEX_IMAGE':
-                        logger.debug(f"Found image texture node: {node.name} (label: {node.label})")
-                        node_name_lower = node.name.lower()
-                        node_label_lower = node.label.lower()
-                        if "diffuse" in node_name_lower or "diffuse" in node_label_lower:
-                            diffuse_texture = node.image
-                            logger.debug("Found diffuse texture!")
-                        elif "normal" in node_name_lower or "normal" in node_label_lower:
-                            normal_texture = node.image
-                            logger.debug("Found normal texture!")
-                        elif "mask" in node_name_lower or "mask" in node_label_lower:
-                            mask_texture = node.image
-                            logger.debug("Found mask texture!")
-                        if diffuse_texture and normal_texture and mask_texture:
-                            logger.debug("Found all skin textures!")
-                            return diffuse_texture, normal_texture, mask_texture
-        logger.debug("Looking among objects WITHOUT a standalone 'a' but with 'skin' in the name.")
-        for matslot in obj.material_slots:
-            material = matslot.material
-            if "skin" in material.name.lower() and not re.search(regex_a_pattern, material.name.lower()): # Search all other skin materials after
-                logger.debug(f"Material \"{material.name}\" matched! Checking for texture nodes.")
-                node_tree = material.node_tree
-                for node in node_tree.nodes:
-                    if node.type == 'TEX_IMAGE':
-                        logger.debug(f"Found image texture node: {node.name}")
-                        node_name_lower = node.name.lower()
-                        if "diffuse" in node_name_lower or "diffuse" in node_label_lower:
-                            diffuse_texture = node.image
-                            logger.debug("Found diffuse texture!")
-                        elif "normal" in node_name_lower or "normal" in node_label_lower:
-                            normal_texture = node.image
-                            logger.debug("Found normal texture!")
-                        elif "mask" in node_name_lower or "mask" in node_label_lower:
-                            mask_texture = node.image
-                            logger.debug("Found mask texture!")
-                        if diffuse_texture and normal_texture and mask_texture:
-                            logger.debug("Found all skin textures!")
-                            return diffuse_texture, normal_texture, mask_texture
-    logger.debug(f"Did not find all skin textures but returning the ones we got")
-    return diffuse_texture, normal_texture, mask_texture
+            if matslot.material:
+                material = matslot.material
+                if "skin" in material.name.lower() and not material in all_potential_skin_materials:
+                    all_potential_skin_materials.append(material)
+
+    texture_groupings_with_a:List[Tuple[bpy.types.Image]] = []
+    texture_groupings_without_a:List[Tuple[bpy.types.Image]] = []
+
+    # Search for materials with a standalone "a"
+    logger.debug("Looking among materials with a standalone 'a' and 'skin' in the name.")
+    for material in all_potential_skin_materials:
+        if re.search(regex_a_pattern, material.name.lower()):
+            logger.debug(f"Material \"{material.name}\" matched! Checking for texture nodes.")
+            node_tree = material.node_tree
+            for node in node_tree.nodes:
+                if node.type == 'TEX_IMAGE':
+                    logger.debug(f"Found image texture node: {node.name} (label: {node.label})")
+                    node_name_lower = node.name.lower()
+                    node_label_lower = node.label.lower()
+                    if "diffuse" in node_name_lower or "diffuse" in node_label_lower:
+                        diffuse_texture = node.image
+                        logger.debug("Found diffuse texture!")
+                    elif "normal" in node_name_lower or "normal" in node_label_lower:
+                        normal_texture = node.image
+                        logger.debug("Found normal texture!")
+                    elif "mask" in node_name_lower or "mask" in node_label_lower:
+                        mask_texture = node.image
+                        logger.debug("Found mask texture!")
+
+            # If we've found all the textures, call it done here.
+            if diffuse_texture and normal_texture and mask_texture:
+                logger.debug("Found all skin textures!")
+                return diffuse_texture, normal_texture, mask_texture
+            elif diffuse_texture or normal_texture or mask_texture:
+                logger.debug("Not all textures found, saving these for later consideration.")
+                texture_groupings_with_a.append((diffuse_texture, normal_texture, mask_texture))
+            else:
+                logger.debug(f"No required textures found in this material.")
+    
+    # All materials have been searched here, if they have a standalone 'a'
+    # If we haven't returned yet, then it's because not all images were found in one material
+
+    logger.warning(f"Could not find a full set of skin textures in skin materials of type 'a' (for creating accurate stockings). Other types of skin materials will now be checked, but results could look wrong.")
+    for material in all_potential_skin_materials:
+        logger.debug(f"Checking \"{material.name}\"")
+        node_tree = material.node_tree
+        for node in node_tree.nodes:
+            if node.type == 'TEX_IMAGE':
+                logger.debug(f"Found image texture node: {node.name} (label: {node.label})")
+                node_name_lower = node.name.lower()
+                node_label_lower = node.label.lower()
+                if "diffuse" in node_name_lower or "diffuse" in node_label_lower:
+                    diffuse_texture = node.image
+                    logger.debug("Found diffuse texture!")
+                elif "normal" in node_name_lower or "normal" in node_label_lower:
+                    normal_texture = node.image
+                    logger.debug("Found normal texture!")
+                elif "mask" in node_name_lower or "mask" in node_label_lower:
+                    mask_texture = node.image
+                    logger.debug("Found mask texture!")
+
+        # If we've found all the textures, call it done here.
+        # This implies we found a full set here, but not among 'a' materials, so we'll prefer this.
+        if diffuse_texture and normal_texture and mask_texture:
+            logger.debug("Found all skin textures!")
+            return diffuse_texture, normal_texture, mask_texture
+        elif diffuse_texture or normal_texture or mask_texture:
+            logger.debug("Not all textures found, saving these for later consideration.")
+            texture_groupings_without_a.append((diffuse_texture, normal_texture, mask_texture))
+        else:
+            logger.debug(f"No required textures found in this material.")
+
+    # If we get here, there wasn't a full set of textures in any material.
+    # Find the largest set of 'a' materials and return that.
+    # If there is no set of 'a' textures, return the largest non-'a' set.
+    logger.debug(f"No full set of textures was found, the longest 'a' set will be returned.")
+    longest_length = 0
+    longest_group:Tuple[bpy.types.Image] = (None, None, None)
+    if len(texture_groupings_with_a) > 0:
+        for texture_group in texture_groupings_with_a:
+            length = 0
+            for texture in texture_group:
+                if texture != None:
+                    length += 1
+            if length > longest_length:
+                longest_group = texture_group
+        return longest_group
+    elif len(texture_groupings_without_a) > 0:
+        logger.debug(f"No sets of 'a' skin textures were found, the longest set of any type will be returned.")
+        for texture_group in texture_groupings_without_a:
+            length = 0
+            for texture in texture_group:
+                if texture != None:
+                    length += 1
+            if length > longest_length:
+                longest_group = texture_group
+        return longest_group
+    else:
+        logger.warning(f"No skin textures were found to use for stocking material creation!")
+        return longest_group
 
 
-def find_users_of_material(material):
+def find_users_of_material(material:bpy.types.Material) -> List[bpy.types.Object]:
     """Returns a list of all objects that use the given material."""
     # Not the most efficient thing in the world. Could potentially have it stop as soon as it finds the material or start by looking in specific collections?
     if material.users == 0:
         return []
     
-    objects_with_material = []
+    objects_with_material:List[bpy.types.Object] = []
     
     for obj in bpy.context.scene.objects:
         # Skip objects that can't have materials
@@ -1188,8 +1244,18 @@ def update_color_ramps(material, mtrl_data, hard_reset=False):
         return False
 
 
-def setup_image_node(nodes, filepath, label, direct_img_datablock=False):
-    """Setup an image texture node with the given parameters"""
+def setup_image_node(nodes, filepath:str|bpy.types.Image, label:str, direct_img_datablock:bool=False) -> bpy.types.Node:
+    """Setup an image texture node based on a filepath. Tries to use already loaded images first.
+
+    Args:
+        nodes (Dict (?) of nodes): The nodes to look among.
+        filepath (str | bpy.types.Image): Filepath to the image to load. If direct_img_datablock is True, this should instead be an Image object.
+        label (str): The label of the node the image should be put on.
+        direct_img_datablock (bool, optional): Whether or not filepath should be treated as an Image object rather than a filepath. Defaults to False.
+
+    Returns:
+        bpy.types.Node or None: The found node, if one was found.
+    """
     # Get existing node
     node = nodes.get(label)
     if not node:
@@ -1356,7 +1422,7 @@ def cleanup_duplicate_images(material, hard_reset):
             rename_datablock_to_original(new_image, bpy.data.images) 
 
 
-def create_ffgear_material(source_material, local_template_material, hard_reset=False):
+def create_ffgear_material(source_material:bpy.types.Material, local_template_material:bpy.types.Material, hard_reset=False):
     """
     Creates or resets a material based on an FFGear template, copying relevant properties
     from a source material.
@@ -1364,6 +1430,7 @@ def create_ffgear_material(source_material, local_template_material, hard_reset=
     Args:
         source_material (bpy.types.Material): The original material to use as a basis
                                              for naming and copying properties.
+        local_template_material (bpy.types.Material): The FFGear template material.
         hard_reset (bool): Whether to replace existing addon assets like tile images
                            and node groups with the ones on disk.
 
@@ -1523,34 +1590,52 @@ def create_ffgear_material(source_material, local_template_material, hard_reset=
         ##### STOCKINGS #####
         if shader_name == "characterstockings.shpk":
 
+            logger.debug("Handling stocking stuff")
             # Find skin textures
-            potential_parents = []
-            users_of_material = find_users_of_material(source_material) # Can't be template mat since that hasn't been applied to any objects yet
-            for user_of_material in users_of_material:
-                parent = user_of_material.parent
-                if parent:
-                    if not parent in potential_parents:
-                        potential_parents.append(parent) # potential_parents will in most cases just be a rig imported with the character
-            skin_diffuse_texture = None
-            skin_normal_texture = None
-            skin_mask_texture = None
-            for parent in potential_parents:
-                child_diffuse_texture, child_normal_texture, child_mask_texture = find_related_skin_textures(parent.children)
-                if child_diffuse_texture and not skin_diffuse_texture:
-                    skin_diffuse_texture = child_diffuse_texture
-                if child_normal_texture and not skin_normal_texture:
-                    skin_normal_texture = child_normal_texture
-                if child_mask_texture and not skin_mask_texture:
-                    skin_mask_texture = child_mask_texture
+
+            # Try with Meddle first
+            skin_diffuse_path = source_material.get("g_SamplerSkinDiffuse_PngCachePath", None) # chara\human\c1801\obj\body\b0001\texture\c1801b0001_base.tex.png
+            skin_normal_path = source_material.get("g_SamplerSkinNormal_PngCachePath", None)
+            skin_mask_path = source_material.get("g_SamplerSkinMask_PngCachePath", None)
+
+            if skin_diffuse_path or skin_normal_path or skin_mask_path:
+                if skin_diffuse_path:
+                    setup_image_node(nodes, skin_diffuse_path, "SKIN DIFFUSE")
+                if skin_normal_path:
+                    setup_image_node(nodes, skin_normal_path, "SKIN NORMAL")
+                if skin_mask_path:
+                    setup_image_node(nodes, skin_mask_path, "SKIN MASK")
+            
+            else:
+                # Fallback: Find based on other material's skin textures
+                logger.debug("Skin textures for stockings could not be found through Meddle properties. Looking using other methods.")
+                potential_parents:List[bpy.types.Object] = []
+                users_of_material = find_users_of_material(source_material) # Can't be template mat since that hasn't been applied to any objects yet
+                for user_of_material in users_of_material:
+                    parent = user_of_material.parent
+                    if parent:
+                        if not parent in potential_parents:
+                            logger.debug(f"This object's children's materials will be checked: {parent.name}")
+                            potential_parents.append(parent) # potential_parents will in most cases just be a rig imported with the character
+
+                # Create a list of all objects that could potentially have the skin material we're looking for
+                all_objects_to_check = []
+                for parent in potential_parents:
+                    for child in parent.children:
+                        if not child in all_objects_to_check:
+                            all_objects_to_check.append(child)
+
+                skin_diffuse_texture, skin_normal_texture, skin_mask_texture = find_related_skin_textures(all_objects_to_check)
+            
+                # Set up texture nodes
+                if skin_diffuse_texture:
+                    setup_image_node(nodes, skin_diffuse_texture, "SKIN DIFFUSE", direct_img_datablock=True)
+                if skin_normal_texture:
+                    setup_image_node(nodes, skin_normal_texture, "SKIN NORMAL", direct_img_datablock=True)
+                if skin_mask_texture:
+                    setup_image_node(nodes, skin_mask_texture, "SKIN MASK", direct_img_datablock=True)
         
-            # Set up texture nodes
-            if skin_diffuse_texture:
-                setup_image_node(nodes, skin_diffuse_texture, "SKIN DIFFUSE", direct_img_datablock=True)
-            if skin_normal_texture:
-                setup_image_node(nodes, skin_normal_texture, "SKIN NORMAL", direct_img_datablock=True)
-            if skin_mask_texture:
-                setup_image_node(nodes, skin_mask_texture, "SKIN MASK", direct_img_datablock=True)
-        
+
             def _property_value_to_color(propval):
                 color_list = [num for num in propval]
                 while len(color_list) < 4:
@@ -2044,7 +2129,7 @@ class FFGearCopyTexturePaths(Operator):
         else:
             # Material must have a variant name
             matching_materials = [material for material in other_materials_we_care_about
-                                  if helpers.compare_strings_for_one_difference(source_material.name, material.name)]
+                                  if helpers.compare_material_names_for_version_matching(source_material.name, material.name)]
         
         updated_count = 0
         for material in matching_materials:

@@ -227,7 +227,7 @@ def collect_linked_materials(source_material):
             # Find potential partners based on the filter criteria
             for mat in bpy.data.materials:
                 if mat != source_material and hasattr(mat, 'ffgear') and mat.ffgear.is_created:
-                    if helpers.compare_strings_for_one_difference(source_material.name, mat.name):
+                    if helpers.compare_material_names_for_version_matching(source_material.name, mat.name):
                         partners.add(mat)
 
             if len(partners) == 0:

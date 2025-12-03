@@ -67,6 +67,37 @@ def compare_strings_for_one_difference(str1: str, str2: str) -> bool:
         # The single difference is non-ascii
         return False
     
+def compare_material_names_for_version_matching(str1: str, str2: str) -> bool:
+    """
+    Compares two strings and returns True if they could be variants of the same material.
+        This means checking for only one-character differences in the names, but disregarding .shpk names.
+
+    Args:
+        str1: The first string.
+        str2: The second string.
+
+    Returns:
+        True if the strings could be variants of the same material name (case changes allowed), False otherwise.
+    """
+
+    str1_shpk_index = str1.find(".shpk") # Example str1 = FFGear Meddle 0.1.5 characterlegacy.shpk mt_c0201e0737_dwn_a
+    str2_shpk_index = str2.find(".shpk") # Example str2 = FFGear Meddle 0.1.5 characterstocking.shpk mt_c0201e0737_dwn_b
+
+    str1_trimmed = str1[:str1_shpk_index] # FFGear Meddle 0.1.5 characterlegacy
+    str2_trimmed = str2[:str2_shpk_index] # FFGear Meddle 0.1.5 characterstocking
+
+    chars_to_split_on = " _,-.(){}[]:;"
+    str1_shpk_name_start_index = max(str1_trimmed.rfind(c) for c in chars_to_split_on)
+    str2_shpk_name_start_index = max(str2_trimmed.rfind(c) for c in chars_to_split_on)
+
+    str1_shpk_name = str1[str1_shpk_name_start_index:str1_shpk_index+5] #  characterlegacy.shpk
+    str2_shpk_name = str2[str2_shpk_name_start_index:str2_shpk_index+5] #  characterstocking.shpk
+
+    str1_without_shpk = str1.replace(str1_shpk_name, "") # FFGear Meddle 0.1.5 mt_c0201e0737_dwn_a
+    str2_without_shpk = str2.replace(str2_shpk_name, "") # FFGear Meddle 0.1.5 mt_c0201e0737_dwn_b
+
+    return compare_strings_for_one_difference(str1_without_shpk, str2_without_shpk)
+
 
 def _get_latest_addon_version() -> dict:
     """

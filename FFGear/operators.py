@@ -586,9 +586,11 @@ def find_related_skin_textures(objects:List[bpy.types.Object]):
     Returns:
         tuple (of blender image datablocks): diffuse_texture, normal_texture, mask_texture
     """
-    # Of note regarding this: characterstocking.shpk is apparently hard-coded to always be "Skin Material A", which is the non-symmetrical one.
+    # Of note regarding this: characterstocking.shpk is apparently hard-coded to always be "Skin Material A", which is the symmetrical one.
     # https://xivmodding.com/books/ff14-asset-reference-document/page/dawntrail-shader-reference-table
     # As such this search should prioritize that skin (should be named with a standalone "a" in the material and 1:2 aspect ratio)
+    # A workaround for this has been developed as of Penumbra 1.5.1.0, which I'm not sure I'm able to detect? Maybe by checking for that "skin_suffix=bibo" tag on the mesh.
+    # https://xivmodding.com/link/20#bkmrk-as-of-penumbra-updat
     
     logger.debug(f"Looking for in-use skin textures among these objects' materials: {[obj.name for obj in objects]}")
     
@@ -1608,6 +1610,7 @@ def create_ffgear_material(source_material:bpy.types.Material, local_template_ma
             
             else:
                 # Fallback: Find based on other material's skin textures
+                # This method prioritizes using the 'a' skin which may be incorrect for some modded stockings.
                 logger.debug("Skin textures for stockings could not be found through Meddle properties. Looking using other methods.")
                 potential_parents:List[bpy.types.Object] = []
                 users_of_material = find_users_of_material(source_material) # Can't be template mat since that hasn't been applied to any objects yet

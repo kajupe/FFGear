@@ -96,13 +96,22 @@ class FFGearMaterialPanel(bpy.types.Panel):
             box = layout.box()
             box.label(text="Dye Colors:")
             
-            col = box.column(align=True)
-            col.prop(material.ffgear, "dye_1")
-            col.prop(material.ffgear, "dye_2")
+            # Warn if MTRL file goes missing
+            if not material.ffgear.mtrl_filepath and material.ffgear.is_created:
+                box.label(icon="ERROR", text=f"MTRL File Missing!")
+                col = box.column(align=True)
+                col.label(text=f"Dyeing functionality requires a MTRL file!")
+                col.label(text=f"You can select one in the above panel.")
 
-            # Add update buttons if MTRL file is selected
-            if material.ffgear.mtrl_filepath:
-                col.separator()
+            # Show dyes before creation (because that can speed up creation and looks nice to new users) or when it IS created and has a MTRL filepath
+            if material.ffgear.mtrl_filepath or not material.ffgear.is_created:
+                col = box.column(align=True)
+                col.prop(material.ffgear, "dye_1")
+                col.prop(material.ffgear, "dye_2")
+
+            col.separator()
+            # Add update buttons
+            if material.ffgear.mtrl_filepath and material.ffgear.is_created:
                 row = col.row(align=True)
                 row.operator("ffgear.get_meddle_dyes", icon='EYEDROPPER', text="")
                 row.operator("ffgear.update_dyed_ramps", icon='FILE_REFRESH', text="Update Color Ramps")
@@ -110,6 +119,10 @@ class FFGearMaterialPanel(bpy.types.Panel):
                 row.prop(material.ffgear, "auto_update_dyes", icon_value=icons.ffgear_ui_icons["auto_on"].icon_id if current_auto_dye_status else icons.ffgear_ui_icons["auto_off"].icon_id, text="")
                 current_link_dyes_status = material.ffgear.get("link_dyes", True)
                 row.prop(material.ffgear, "link_dyes", icon='DECORATE_LINKED' if current_link_dyes_status else 'UNLINKED', text="")
+
+            if material.ffgear.is_created:
+                row = col.row(align=True)
+                row.operator("ffgear.use_meddle_color_data")
 
             # Linked Materials panel
             linked_materials = material.ffgear.linked_materials
@@ -138,7 +151,7 @@ class FFGearMaterialPanel(bpy.types.Panel):
             box.label(icon="ERROR", text=f"Material Created without MTRL File!")
             col = box.column(align=True)
             col.label(text=f"This material was created without access")
-            col.label(text=f"to real .mtrl data. Dyeing is disabled")
+            col.label(text=f"to direct .mtrl data. Dyeing is disabled")
             col.label(text=f"and results may look worse than desired.")
 
 

@@ -226,7 +226,7 @@ def read_mtrl_file(filepath: str) -> Optional[Dict[str, Any]]:
             # COLORSET DATA
             br.seek(string_block_start + string_block_size + additional_data_size)
             color_data_start = br.tell()
-            colorset_data = []
+            colorset_data:List[Dict[str,Any]] = []
             colorset_type = None
             row_count = 0
 

@@ -23,7 +23,7 @@ from dataclasses import dataclass
 
 logging.basicConfig()
 logger = logging.getLogger('FFGear.operators')
-logger.setLevel(logging.DEBUG) # Apparently the level above is a fucking sham and a fraud (oh I removed it at some point sick)
+logger.setLevel(logging.INFO) # Apparently the level above is a fucking sham and a fraud (oh I removed it at some point sick)
 
 supported_shaders = ('character', 'characterlegacy', 'charactertransparency', 'characterstockings') # These will be allowed when using the Meddle auto-setup
 

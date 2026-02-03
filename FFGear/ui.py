@@ -27,11 +27,15 @@ class FFGearMaterialPanel(bpy.types.Panel):
     def draw_header(self, context):
         if self.prefs and not self.prefs.disable_meteor_icon:
             layout = self.layout
+            if not layout:
+                return
             layout.label(text="", icon_value=icons.ffgear_ui_icons["meteor"].icon_id)
         
 
     def draw(self, context):
         layout = self.layout
+        if not layout:
+            return
         material = context.material
 
         # Setup Box
@@ -122,7 +126,7 @@ class FFGearMaterialPanel(bpy.types.Panel):
 
             if material.ffgear.is_created:
                 row = col.row(align=True)
-                row.operator("ffgear.use_meddle_color_data")
+                row.operator("ffgear.use_meddle_color_data", text="Load Colorset from Meddle")
 
             # Linked Materials panel
             linked_materials = material.ffgear.linked_materials
@@ -157,8 +161,8 @@ class FFGearMaterialPanel(bpy.types.Panel):
 
         # Update Notification
         latest_name = helpers.latest_version_name
-        if self.prefs and not self.prefs.disable_update_checking:
-            if self.prefs and not self.prefs.disable_update_notif and helpers.current_version != helpers.latest_version and helpers.current_version != "Unknown" and helpers.latest_version != "Unknown":
+        if self.prefs and not self.prefs.disable_update_checking and not self.prefs.disable_update_notif:
+            if helpers.current_version != helpers.latest_version and helpers.current_version != "Unknown" and helpers.latest_version != "Unknown":
                 box = layout.box()
                 box.label(icon="ERROR", text=f"A new update to FFGear is available!")
                 col = box.column(align=True)

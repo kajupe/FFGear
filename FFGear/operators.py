@@ -12,8 +12,7 @@ from . import helpers
 from . import properties
 from .mtrl_handler import MaterialFlags
 from .stm_utils import StainingTemplate
-from enum import Enum
-from typing import List, Optional, Union, Dict, Tuple, Any
+from typing import List, Optional, Dict, Tuple, Any
 from dataclasses import dataclass
 
 # # Profiling
@@ -1601,6 +1600,10 @@ def create_ffgear_material(source_material:bpy.types.Material, local_template_ma
                             if combined_colorset_data[i].get('dye'):
                                 del combined_colorset_data[i]['dye']
                         mtrl_data['colorset_data'] = combined_colorset_data
+                    else:
+                        logger.error(f"real and false colorset_data have different lengths ({len(real_colorset_data)} vs {len(false_colorset_data)}), and they won't be combined. Material: {template_mat.name}")
+                else:
+                    logger.error(f"mtrl_data and false_mtrl_data exist, but they don't have colorset_data. Material: {template_mat.name}")
             if mtrl_data:
                 if not update_color_ramps(template_mat, mtrl_data):
                     logger.warning(f"Failed to update color ramps for {template_mat.name}")
@@ -1611,6 +1614,8 @@ def create_ffgear_material(source_material:bpy.types.Material, local_template_ma
                     shader_name = mtrl_data.get('shader_name', None) # Get from mtrl file
                     if shader_name == None:
                         logger.error(f"Failed to get shader type for this material: {template_mat.name}")
+            else:
+                logger.error(f"mtrl_data (real or false) not present when trying to update color ramps for material: {template_mat.name}")
         else:
             logger.error(f"Somehow we got really far into create_ffgear_material without a mtrl filepath or false mtrl data. Returning False for template material: {template_mat.name}")
             return False, "What the fuck?", None
@@ -2712,8 +2717,8 @@ class FFGearUpdateDyedRamps(Operator):
 
 
 class FFGearUseMeddleColorData(Operator):
-    """Update the material's color ramps with dye information from the exported Meddle data.
-    This will include edits made to the material's colorset using things like Glamourer.
+    """Update the material with colorset data from Meddle.
+    This will include edits made to the material using things like Glamourer.
     Hold Shift to affect all FFGear materials across all selected objects"""
     bl_idname = "ffgear.use_meddle_color_data"
     bl_label = "Use Meddle Color Data"
@@ -2755,7 +2760,10 @@ class FFGearUseMeddleColorData(Operator):
                     self.report({'ERROR'}, "Could not get mtrl data from the Meddle data")
                     return {'CANCELLED'}
         else:
-            self.report({'ERROR'}, "Could not find a material in the context")
+            if not self.affect_all_on_selected:
+                self.report({'ERROR'}, "Could not find an FFGear material in the context")
+            else:
+                self.report({'ERROR'}, "Could not find any FFGear materials across the selected items")
             return {'CANCELLED'}
         return {'FINISHED'}
 

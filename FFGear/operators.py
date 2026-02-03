@@ -758,10 +758,18 @@ def disconnect_node_and_relink(node_tree, node_to_disconnect, primary_input_inde
         node_tree.nodes.remove(node_to_disconnect)
 
 
-
-
 def ffgear_material_filtering(materials:List[bpy.types.Material], require_valid_name:bool=False, require_mtrl_filepath:bool=False, required_created_status:bool|None=None) -> List[bpy.types.Material]:
+    """Filters materials based on some FFGear-related properties
 
+    Args:
+        materials (List[bpy.types.Material]): List of materials to filter
+        require_valid_name (bool, optional): Whether the material name needs to be formatted in a way recognized by FFGear. Defaults to False.
+        require_mtrl_filepath (bool, optional): Whether the material needs to have a mtrl filepath set. Defaults to False.
+        required_created_status (bool | None, optional): The is_created status required. A value of True means the material must be set up by FFGear. A value of None means no requirement. Defaults to None.
+
+    Returns:
+        List[bpy.types.Material]: The materials that passed through the filter
+    """
     valid_materials = []
     for material in materials:
         if (hasattr(material, "ffgear") and 
@@ -773,7 +781,17 @@ def ffgear_material_filtering(materials:List[bpy.types.Material], require_valid_
     return valid_materials
 
 def get_ffgear_materials_on_objects(objects:List[bpy.types.Object], require_valid_name:bool=False, require_mtrl_filepath:bool=False, required_created_status:bool|None=None) -> List[bpy.types.Material]:
-    
+    """Looks for FFGear materials on a list of objects, filtering them through ffgear_material_filtering
+
+    Args:
+        objects (List[bpy.types.Object]): List of objects to search on.
+        require_valid_name (bool, optional): Whether the material name needs to be formatted in a way recognized by FFGear. Defaults to False.
+        require_mtrl_filepath (bool, optional): Whether the material needs to have a mtrl filepath set. Defaults to False.
+        required_created_status (bool | None, optional): The is_created status required. A value of True means the material must be set up by FFGear. A value of None means no requirement. Defaults to None.
+
+    Returns:
+        List[bpy.types.Material]: The materials on the objects that passed through the filter
+    """
     materials_to_filter = []
     for object in objects:
         for matslot in object.material_slots:

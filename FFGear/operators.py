@@ -4,7 +4,7 @@ import re
 import logging
 import collections
 
-from bpy.types import Operator
+from bpy.types import Context, Operator
 from pathlib import Path
 from . import stm_utils
 from . import mtrl_handler
@@ -12,8 +12,7 @@ from . import helpers
 from . import properties
 from .mtrl_handler import MaterialFlags
 from .stm_utils import StainingTemplate
-from enum import Enum
-from typing import List, Optional, Union, Dict, Tuple, Any
+from typing import List, Optional, Dict, Tuple, Any
 from dataclasses import dataclass
 
 # # Profiling
@@ -89,9 +88,9 @@ def rename_datablock_to_original(datablock, datablock_category):
         return False, str(e)
 
 
-def collect_material_slots_for_objects(objects, filter_func=None):
+def create_material_mapping(objects:List[bpy.types.Object]|bpy.types.BlendDataObjects, filter_func=None):
     """
-    Collect all material slots that need processing across given objects.
+    Creates a map of materials across the given objects, and in which object's material slot they were found.
     
     Args:
         objects: List of objects to check
@@ -100,7 +99,7 @@ def collect_material_slots_for_objects(objects, filter_func=None):
     Returns:
         dict: The key is the material, the value is a list of tuples (obj, slot_index)
     """
-    material_mapping = {}
+    material_mapping:Dict[bpy.types.Material, List[Tuple[bpy.types.Object, int]]] = {}
     
     for obj in objects:
         if not obj.material_slots:
@@ -387,7 +386,7 @@ def get_textures_from_meddle_data(cache_dir, material):
     return diffuse_tex_path, mask_tex_path, norm_tex_path, id_tex_path
 
 
-def construct_false_meddle_mtrl_data(material: bpy.types.Material):
+def construct_false_meddle_mtrl_data(material: bpy.types.Material) -> Optional[Dict[str, Any]]:
     """
     Creates some mtrl data to use for material creation based on the ColorTable attribute in the Meddle data
 
@@ -759,6 +758,49 @@ def disconnect_node_and_relink(node_tree, node_to_disconnect, primary_input_inde
         node_tree.nodes.remove(node_to_disconnect)
 
 
+def ffgear_material_filtering(materials:List[bpy.types.Material], require_valid_name:bool=False, require_mtrl_filepath:bool=False, required_created_status:bool|None=None) -> List[bpy.types.Material]:
+    """Filters materials based on some FFGear-related properties
+
+    Args:
+        materials (List[bpy.types.Material]): List of materials to filter
+        require_valid_name (bool, optional): Whether the material name needs to be formatted in a way recognized by FFGear. Defaults to False.
+        require_mtrl_filepath (bool, optional): Whether the material needs to have a mtrl filepath set. Defaults to False.
+        required_created_status (bool | None, optional): The is_created status required. A value of True means the material must be set up by FFGear. A value of None means no requirement. Defaults to None.
+
+    Returns:
+        List[bpy.types.Material]: The materials that passed through the filter
+    """
+    valid_materials = []
+    for material in materials:
+        if (hasattr(material, "ffgear") and 
+            (material_name_is_valid(material.name) if require_valid_name else True) and 
+            (material.ffgear.mtrl_filepath != "" if require_mtrl_filepath else True) and
+            (material.ffgear.is_created == required_created_status if required_created_status != None else True)):
+
+            valid_materials.append(material)
+    return valid_materials
+
+def get_ffgear_materials_on_objects(objects:List[bpy.types.Object], require_valid_name:bool=False, require_mtrl_filepath:bool=False, required_created_status:bool|None=None) -> List[bpy.types.Material]:
+    """Looks for FFGear materials on a list of objects, filtering them through ffgear_material_filtering
+
+    Args:
+        objects (List[bpy.types.Object]): List of objects to search on.
+        require_valid_name (bool, optional): Whether the material name needs to be formatted in a way recognized by FFGear. Defaults to False.
+        require_mtrl_filepath (bool, optional): Whether the material needs to have a mtrl filepath set. Defaults to False.
+        required_created_status (bool | None, optional): The is_created status required. A value of True means the material must be set up by FFGear. A value of None means no requirement. Defaults to None.
+
+    Returns:
+        List[bpy.types.Material]: The materials on the objects that passed through the filter
+    """
+    materials_to_filter = []
+    for object in objects:
+        for matslot in object.material_slots:
+            if (matslot.material):
+                materials_to_filter.append(matslot.material)
+    return ffgear_material_filtering(materials_to_filter, require_valid_name, require_mtrl_filepath, required_created_status)
+
+
+
 
 
 #¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
@@ -772,7 +814,7 @@ class ColorChannel:
     default: float = 0.0    # Default value if not specified
     can_be_dyed: bool = False
     # Dictionary mapping template types to special handling rules
-    template_rules: Dict[StainingTemplate, Dict[str, Any]] = None
+    template_rules: Dict[StainingTemplate, Dict[str, Any]] | None = None
 
     def __post_init__(self):
         # Initialize empty rules dict if none provided
@@ -1045,8 +1087,20 @@ def update_color_ramp_values(
 
 
 # Could pass some data into the sub-functions for a little bit of extra speed
-def update_color_ramps(material, mtrl_data, hard_reset=False):
-    """Update existing color ramps in the material using MTRL data"""
+def update_color_ramps(material:bpy.types.Material, mtrl_data:dict, hard_reset=False) -> bool:
+    """Update existing color ramps in the material using MTRL data
+
+    Args:
+        material (bpy.types.Material): The material to update color ramps on.
+        mtrl_data (dict): The material data to use when updating the color ramps.
+        hard_reset (bool, optional): Re-assign all color ramp values, rather than only applying those that can change with a dye. Defaults to False.
+
+    Raises:
+        ValueError: _description_
+
+    Returns:
+        bool: True on Success, False otherwise
+    """
 
     logger.debug(f"CALL: update_color_ramps (material(name)={material.name}, mtrl_data=tooLongToLogIDontWantTo, hard_reset={hard_reset})")
 
@@ -1446,18 +1500,17 @@ def create_ffgear_material(source_material:bpy.types.Material, local_template_ma
     template_mat = None
     mtrl_data = None
     material_is_ancient = False
-    false_mtrl_data = None
+    false_mtrl_data = construct_false_meddle_mtrl_data(source_material)
 
 
     # if no mtrl path, skip
     # UNLESS we got false data
     if not (hasattr(source_material, "ffgear") and source_material.ffgear.mtrl_filepath != ""):
-        false_mtrl_data = construct_false_meddle_mtrl_data(source_material)
         if false_mtrl_data:
             logger.warning(f"This material had no mtrl file path but false mtrl data was constructed from Meddle properties: {source_material.name}")
         else:
             logger.error(f"Got to create_ffgear_material but couldn't find a mtrl path or construct false mtrl data, skipping: {source_material.name}")
-            return False, "No MTRL or False Mtrl Data", None
+            return False, "No MTRL or False MTRL Data", None
 
     try:
         ##### Store Properties from Source Material #####
@@ -1546,6 +1599,29 @@ def create_ffgear_material(source_material:bpy.types.Material, local_template_ma
             if not mtrl_data:
                 mtrl_data = false_mtrl_data # Use false data constructed from meddle properties on the material, not ideal
                 false_mtrl_data_is_used = True
+            elif mtrl_data and false_mtrl_data:
+                # We have both types of data. Use Meddle's color data since it includes changes made using Glamourer and the like
+                # Specifically, it's the colorset_data we want to get from Meddle unless it's None
+                # To clarify on naming here, "real" refers to what was gotten directly from the mtrl file, while "false" is what was constructed from the Meddle data
+                real_colorset_data = mtrl_data.get('colorset_data')
+                false_colorset_data = false_mtrl_data.get('colorset_data')
+                if real_colorset_data and false_colorset_data:
+                    if len(real_colorset_data) == len(false_colorset_data):
+                        combined_colorset_data:List[Dict[str,Any]] = []
+                        combined_colorset_data = real_colorset_data # By default, have the data be what we got from the MTRL file (there's more there)
+                        for i, false_row in enumerate(false_colorset_data):
+                            for false_key in false_row:
+                                false_value = false_row[false_key]
+                                if false_value != None:
+                                    combined_colorset_data[i][false_key] = false_value # As long as there exists a value in the false data, use it instead
+                            # Remove the dye info because it causes issues somewhere in update_color_ramps. I have not looked into exactly *why*
+                            if combined_colorset_data[i].get('dye'):
+                                del combined_colorset_data[i]['dye']
+                        mtrl_data['colorset_data'] = combined_colorset_data
+                    else:
+                        logger.error(f"real and false colorset_data have different lengths ({len(real_colorset_data)} vs {len(false_colorset_data)}), and they won't be combined. Material: {template_mat.name}")
+                else:
+                    logger.error(f"mtrl_data and false_mtrl_data exist, but they don't have colorset_data. Material: {template_mat.name}")
             if mtrl_data:
                 if not update_color_ramps(template_mat, mtrl_data):
                     logger.warning(f"Failed to update color ramps for {template_mat.name}")
@@ -1556,6 +1632,8 @@ def create_ffgear_material(source_material:bpy.types.Material, local_template_ma
                     shader_name = mtrl_data.get('shader_name', None) # Get from mtrl file
                     if shader_name == None:
                         logger.error(f"Failed to get shader type for this material: {template_mat.name}")
+            else:
+                logger.error(f"mtrl_data (real or false) not present when trying to update color ramps for material: {template_mat.name}")
         else:
             logger.error(f"Somehow we got really far into create_ffgear_material without a mtrl filepath or false mtrl data. Returning False for template material: {template_mat.name}")
             return False, "What the fuck?", None
@@ -1972,7 +2050,7 @@ class FFGearFetchMtrlTextures(Operator):
     
     @classmethod
     def poll(cls, context):
-        return (context.material and
+        return (hasattr(context, 'material') and
                 context.material is not None and 
                 context.material.ffgear.mtrl_filepath != "")
     
@@ -2111,7 +2189,7 @@ class FFGearCopyTexturePaths(Operator):
 
     @classmethod
     def poll(cls, context):
-        return (context.material and
+        return (hasattr(context, 'material') and
                 context.material is not None)
     
     def execute(self, context):
@@ -2173,7 +2251,7 @@ class FFGearFetchMeddleTextures(Operator):
 
     @classmethod
     def poll(cls, context):
-        return (context.material and
+        return (hasattr(context, 'material') and
                 context.material is not None)
     
     def execute(self, context):
@@ -2232,7 +2310,8 @@ class FFGearGetDyesFromMeddle(Operator):
     
     @classmethod
     def poll(cls, context):
-        return context.object is not None
+        return (hasattr(context, 'object') and
+                context.object is not None)
     
     def execute(self, context):
         success, message = get_meddle_dyes(context.material)
@@ -2276,7 +2355,7 @@ class FFGearMeddleSetup(Operator):
 
     @classmethod
     def poll(cls, context):
-        return (context.material and
+        return (hasattr(context, 'material') and
                 context.material is not None and 
                 hasattr(context.material, "ffgear"))
     
@@ -2432,7 +2511,7 @@ class FFGearMeddleSetup(Operator):
             return mat in source_materials
 
         # Collect material slots
-        material_mapping = collect_material_slots_for_objects(
+        material_mapping = create_material_mapping(
             target_objects, 
             filter_func
         )
@@ -2478,7 +2557,8 @@ class FFGearMeddleSetup(Operator):
         self.use_selected = event.ctrl
         if self.prefs and self.prefs.default_meddle_import_path:
             self.filepath = self.prefs.default_meddle_import_path
-        context.window_manager.fileselect_add(self)
+        if context.window_manager:
+            context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
 
@@ -2494,7 +2574,8 @@ class FFGearAutoMaterial(Operator):
     
     @classmethod
     def poll(cls, context):
-        return (context.material is not None and 
+        return (hasattr(context, 'material') and
+                context.material is not None and 
                 hasattr(context.material, "ffgear"))
     
     def invoke(self, context, event):
@@ -2513,22 +2594,20 @@ class FFGearAutoMaterial(Operator):
             objects_to_potentially_manipulate = bpy.data.objects
 
         # Get the materials to process
-        materials_to_process = []
         if affect_all_on_selected:
-            for object in context.selected_objects:
-                for matslot in object.material_slots:
-                    if hasattr(matslot.material, "ffgear") and material_name_is_valid(matslot.material.name, True) and matslot.material.ffgear.mtrl_filepath != "":
-                        materials_to_process.append(matslot.material)
+            materials_to_process = get_ffgear_materials_on_objects(context.selected_objects, require_mtrl_filepath=True)
         else:
-            the_material = context.material
-            if hasattr(the_material, "ffgear") and material_name_is_valid(the_material.name, True) and the_material.ffgear.mtrl_filepath != "":
-                materials_to_process.append(the_material)
+            if context.material:
+                materials_to_process = ffgear_material_filtering([context.material], require_mtrl_filepath=True)
+            else:
+                materials_to_process = []
             
+
         def filter_func(mat):
             return mat in materials_to_process
             
         # Collect material slots
-        material_mapping = collect_material_slots_for_objects(objects_to_potentially_manipulate, filter_func)
+        material_mapping = create_material_mapping(objects_to_potentially_manipulate, filter_func)
         
         if not material_mapping:
             self.report({'WARNING'}, "No matching materials found on any applicable objects")
@@ -2655,6 +2734,61 @@ class FFGearUpdateDyedRamps(Operator):
 
 
 
+class FFGearUseMeddleColorData(Operator):
+    """Update the material with colorset data from Meddle.
+    This will include edits made to the material using things like Glamourer.
+    Hold Shift to affect all FFGear materials across all selected objects"""
+    bl_idname = "ffgear.use_meddle_color_data"
+    bl_label = "Use Meddle Color Data"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    affect_all_on_selected: bpy.props.BoolProperty(
+        name="Affect all on Selected",
+        description="Apply this to all FFGear materials on all selected objects",
+        default=False
+    )
+
+    @classmethod
+    def poll(cls, context):
+        # Poll checking context for when the operator is called from the UI
+        return (hasattr(context, 'material') and
+                context.material is not None and
+                hasattr(context.material, 'ffgear'))
+    
+    def execute(self, context):
+        # Pick materials
+        if self.affect_all_on_selected:
+            materials:List[bpy.types.Material] = get_ffgear_materials_on_objects(context.selected_objects, required_created_status=True)
+        else:
+            if context.material:
+                materials:List[bpy.types.Material] = [context.material]
+        
+        # Execute the thing
+        if materials:
+            for material in materials:
+                meddle_mtrl_data = construct_false_meddle_mtrl_data(material)
+                if meddle_mtrl_data:
+                    success = update_color_ramps(material, meddle_mtrl_data, hard_reset=True)
+                    if success:
+                        self.report({'INFO'}, "Color Ramps updated with exported Meddle data")
+                    else:
+                        self.report({'ERROR'}, "Updating color ramps failed for an unknown reason")
+                        return {'CANCELLED'}
+                else:
+                    self.report({'ERROR'}, "Could not get mtrl data from the Meddle data")
+                    return {'CANCELLED'}
+        else:
+            if not self.affect_all_on_selected:
+                self.report({'ERROR'}, "Could not find an FFGear material in the context")
+            else:
+                self.report({'ERROR'}, "Could not find any FFGear materials across the selected items")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        self.affect_all_on_selected = event.shift
+        return self.execute(context)
+
 
 #¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
 # REGISTER AND UNREGISTER
@@ -2674,8 +2808,10 @@ def register():
     bpy.utils.register_class(FFGearCopyTexturePaths)
     # bpy.utils.register_class(FFGearUpdateAllRamps)
     bpy.utils.register_class(FFGearGetDyesFromMeddle)
+    bpy.utils.register_class(FFGearUseMeddleColorData)
 
 def unregister():
+    bpy.utils.unregister_class(FFGearUseMeddleColorData)
     bpy.utils.unregister_class(FFGearGetDyesFromMeddle)
     # bpy.utils.unregister_class(FFGearUpdateAllRamps)
     bpy.utils.unregister_class(FFGearCopyTexturePaths)

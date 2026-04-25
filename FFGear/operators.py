@@ -1,4 +1,5 @@
 import bpy
+import mathutils
 import os
 import re
 import logging
@@ -780,6 +781,7 @@ def ffgear_material_filtering(materials:List[bpy.types.Material], require_valid_
             valid_materials.append(material)
     return valid_materials
 
+
 def get_ffgear_materials_on_objects(objects:List[bpy.types.Object], require_valid_name:bool=False, require_mtrl_filepath:bool=False, required_created_status:bool|None=None) -> List[bpy.types.Material]:
     """Looks for FFGear materials on a list of objects, filtering them through ffgear_material_filtering
 
@@ -1082,8 +1084,16 @@ def update_color_ramp_values(
     """Update color ramp element with values from a single row"""
     channels = property_def.channels
     # Use list comprehension to build the color array quickly
-    element.color = [get_mtrl_value(row_data, channels[channel], dye_info, template_type, dye_channels)
-                    for channel in ('r', 'g', 'b', 'a')]
+    rec709_color = mathutils.Color([get_mtrl_value(row_data, channels[channel], dye_info, template_type, dye_channels)
+                                    for channel in ('r', 'g', 'b')])
+    # Alpha separately since mathutils.Color does not handle Alpha
+    alpha = get_mtrl_value(row_data, channels['a'], dye_info, template_type, dye_channels) 
+    # Convert to scene linear, if the user isn't using rec.709
+    # the from_rec709_linear_to_scene_linear() function should have existed for a while (like 3.2 or something, i see it in the 4.2 LTS documentation at least), I could check to make sure but I don't want to spend time doing that in this function
+    # if hasattr(color, 'from_rec709_linear_to_scene_linear'):
+    scene_linear_color = rec709_color.from_rec709_linear_to_scene_linear()
+    # Assign the converted color
+    element.color = (*scene_linear_color, alpha)
 
 
 # Could pass some data into the sub-functions for a little bit of extra speed
@@ -2788,6 +2798,7 @@ class FFGearUseMeddleColorData(Operator):
     def invoke(self, context, event):
         self.affect_all_on_selected = event.shift
         return self.execute(context)
+
 
 
 #¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤#

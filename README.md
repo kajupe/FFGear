@@ -20,9 +20,24 @@ It's meant to allow for more customizability after you've already exported a cha
 &nbsp;
 
 ## Installation
-- Download the latest ZIP from [Releases](https://github.com/kajupe/FFGear/releases)
-- In Blender, go to `Edit > Preferences > Add-ons > Dropdown in the top-right > Install from Disk...` and Select the ZIP
-&nbsp;
+You have two options! The traditional way:
+1. Download the latest ZIP from [Releases](https://github.com/kajupe/FFGear/releases)
+2. In Blender, go to `Edit > Preferences > Add-ons > Dropdown in the top-right > Install from Disk...` and Select the ZIP
+
+The new fancy way:
+
+1. In Blender, go to `Edit` -> `Preferences` -> `Get Extensions`
+2. Select `Repositories` drop-down and click `Add Remote Repository`
+3. Enter the following URL: 
+```
+https://raw.githubusercontent.com/ShinoMythmaker/FFXIV-Blender-Plugins/refs/heads/main/repo.json
+```
+4. Click `Check for Updates on Startup`
+5. Click `Create`
+6. Search for `FFGear` in and click `Install`
+
+This adds a repository with a bunch of other Blender addons like [Meddle Tools](https://github.com/PassiveModding/MeddleTools) and [AetherBlend](https://github.com/ShinoMythmaker/Aetherblend) which I both highly recommend. You can see the full list of (entirely optional) addons [here](https://github.com/ShinoMythmaker/FFXIV-Blender-Plugins).<br>
+If you're not sure which method to use, I recommend the new fancy one.
 
 &nbsp;
 

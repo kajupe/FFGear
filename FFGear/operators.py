@@ -815,6 +815,7 @@ class ColorChannel:
     mtrl_key: str           # Key in MTRL data to read from
     default: float = 0.0    # Default value if not specified
     can_be_dyed: bool = False
+    is_color: bool = False   # If this is True, the value will be subject to color space conversion and the like. These are only considered for the rgb channels, and if ANY is true they will all be considered part of a color.
     # Dictionary mapping template types to special handling rules
     template_rules: Dict[StainingTemplate, Dict[str, Any]] | None = None
 
@@ -836,9 +837,9 @@ MTRL_PROPERTIES = {
         name="Diffuse Colors",
         node_label="Ramp 1",
         channels={
-            "r": ColorChannel("diffuse[0]", can_be_dyed=True),
-            "g": ColorChannel("diffuse[1]", can_be_dyed=True),
-            "b": ColorChannel("diffuse[2]", can_be_dyed=True),
+            "r": ColorChannel("diffuse[0]", can_be_dyed=True, is_color=True),
+            "g": ColorChannel("diffuse[1]", can_be_dyed=True, is_color=True),
+            "b": ColorChannel("diffuse[2]", can_be_dyed=True, is_color=True),
             "a": ColorChannel("", default=1.0)
         }
     ),
@@ -846,9 +847,9 @@ MTRL_PROPERTIES = {
         name="Specular & Sheen Rate",
         node_label="Ramp 2",
         channels={
-            "r": ColorChannel("specular[0]", can_be_dyed=True),
-            "g": ColorChannel("specular[1]", can_be_dyed=True),
-            "b": ColorChannel("specular[2]", can_be_dyed=True),
+            "r": ColorChannel("specular[0]", can_be_dyed=True, is_color=True),
+            "g": ColorChannel("specular[1]", can_be_dyed=True, is_color=True),
+            "b": ColorChannel("specular[2]", can_be_dyed=True, is_color=True),
             "a": ColorChannel(
                 "sheen_rate", 
                 can_be_dyed=True,
@@ -864,9 +865,9 @@ MTRL_PROPERTIES = {
         name="Emissive & Sheen Tint",
         node_label="Ramp 3",
         channels={
-            "r": ColorChannel("emissive[0]", can_be_dyed=True),
-            "g": ColorChannel("emissive[1]", can_be_dyed=True),
-            "b": ColorChannel("emissive[2]", can_be_dyed=True),
+            "r": ColorChannel("emissive[0]", can_be_dyed=True, is_color=True),
+            "g": ColorChannel("emissive[1]", can_be_dyed=True, is_color=True),
+            "b": ColorChannel("emissive[2]", can_be_dyed=True, is_color=True),
             "a": ColorChannel(
                 "sheen_tint_rate", 
                 can_be_dyed=True,
@@ -1083,6 +1084,7 @@ def update_color_ramp_values(
         dye_channels: Optional[Dict[int, str]] = None) -> None:
     """Update color ramp element with values from a single row"""
     channels = property_def.channels
+    is_color = any([channel[1].is_color for channel in channels.items()])
     # Use list comprehension to build the color array quickly
     rec709_color = mathutils.Color([get_mtrl_value(row_data, channels[channel], dye_info, template_type, dye_channels)
                                     for channel in ('r', 'g', 'b')])
@@ -1091,7 +1093,10 @@ def update_color_ramp_values(
     # Convert to scene linear, if the user isn't using rec.709
     # the from_rec709_linear_to_scene_linear() function should have existed for a while (like 3.2 or something, i see it in the 4.2 LTS documentation at least), I could check to make sure but I don't want to spend time doing that in this function
     # if hasattr(color, 'from_rec709_linear_to_scene_linear'):
-    scene_linear_color = rec709_color.from_rec709_linear_to_scene_linear()
+    if is_color:
+        scene_linear_color = rec709_color.from_rec709_linear_to_scene_linear()
+    else:
+        scene_linear_color = rec709_color # It's data, don't do any conversions on it.
     # Assign the converted color
     element.color = (*scene_linear_color, alpha)
 

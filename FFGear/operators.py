@@ -2834,7 +2834,7 @@ class FFGearUseMeddleColorData(Operator):
 
 
 class FFGearOffsetAlongNormals(Operator):
-    """Apply a Geometry Nodes modifier to the object, offsetting its surface by a tiny amount to avoid overlapping faces.
+    """Apply a Geometry Nodes modifier to the object, offsetting its surface by a tiny amount to avoid overlapping faces and visual artifacting in Cycles.
     Hold Shift to affect all selected objects with at least one material using a supported shader type.
     Hold Ctrl to skip connecting FFGear materials to the Backface Culling node"""
     bl_idname = "ffgear.offset_along_normals"

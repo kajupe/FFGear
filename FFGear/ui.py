@@ -93,6 +93,11 @@ class FFGearMaterialPanel(bpy.types.Panel):
                         text="Create This Material" if not is_created else "Reset This Material", 
                         icon='NODE_MATERIAL')
 
+        # Normal Offset Button
+        col = setup_box.column(align=True)
+        row = col.row(align=True)
+        row.operator("ffgear.offset_along_normals", icon='ORIENTATION_NORMAL')
+
 
 
         if not material.ffgear.created_without_mtrl:

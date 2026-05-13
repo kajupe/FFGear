@@ -2889,11 +2889,17 @@ class FFGearOffsetAlongNormals(Operator):
         if offset_normals_group:
             # Find objects that should get it
             affected_objects:list[bpy.types.Object] = []
+            affected_materials:list[bpy.types.Material] = []
             for obj in (bpy.context.selected_objects if self.affect_all_selected else [bpy.context.active_object]):
                 if obj:
                     for matslot in obj.material_slots:
-                        if matslot.material and (material_uses_supported_shader(matslot.material) or (hasattr(matslot.material, "ffgear") and matslot.material.ffgear.is_created)): # Name is valid or is already an FFGear material
-                            affected_objects.append(obj)
+                        if (matslot.material and
+                           (material_uses_supported_shader(matslot.material) or (hasattr(matslot.material, "ffgear") and matslot.material.ffgear.is_created)) and # Material is supported or is already an FFGear material
+                           (matslot.material.get("RenderBackfaces", True) == False)): # Material should have backface culling, since if it doesn't there won't be overlapping faces
+                            if not obj in affected_objects:
+                                affected_objects.append(obj)
+                            if not matslot.material in affected_materials:
+                                affected_materials.append(matslot.material)
             
             for obj in affected_objects:
                 # Check if it already has the modifier
@@ -2909,30 +2915,29 @@ class FFGearOffsetAlongNormals(Operator):
                     modifier.node_group = offset_normals_group
                 # Go through the materials and, unless we're ignoring it, connect the Backface Culling node
                 if not self.do_not_enable_material_backface_culling:
-                    for matslot in obj.material_slots:
-                        if matslot.material:
-                            node_tree = matslot.material.node_tree
-                            if node_tree:
-                                nodes = node_tree.nodes
-                                output_node = nodes.get("Material Output") # Type: ShaderNodeOutputMaterial
-                                culling_node = nodes.get("Backface Culling")
-                                if output_node and culling_node:
-                                    surface_output_socket = output_node.inputs["Surface"]
-                                    current_link = surface_output_socket.links[0] if surface_output_socket.links else None
-                                    currently_connected_socket = current_link.from_socket if current_link else None
-                                    currently_connected_node = current_link.from_node if current_link else None
-                                    if currently_connected_node == culling_node:
-                                        continue # It's already connected to the culling node
-                                    if current_link and currently_connected_socket:
-                                        node_tree.links.remove(current_link)
-                                        if culling_node.inputs[0].links:
-                                            node_tree.links.remove(culling_node.inputs[0].links[0])
-                                        node_tree.links.new(currently_connected_socket, culling_node.inputs[0])
-                                        node_tree.links.new(culling_node.outputs[0], surface_output_socket)
-                                elif output_node:
-                                    logger.warning(f"Material \"{matslot.material.name}\" does not have a Backface Culling node.")
-                                elif culling_node:
-                                    logger.warning(f"Material \"{matslot.material.name}\" does not have a Material Output node.")
+                    for material in affected_materials:
+                        node_tree = material.node_tree
+                        if node_tree:
+                            nodes = node_tree.nodes
+                            output_node = nodes.get("Material Output") # Type: ShaderNodeOutputMaterial
+                            culling_node = nodes.get("Backface Culling")
+                            if output_node and culling_node:
+                                surface_output_socket = output_node.inputs["Surface"]
+                                current_link = surface_output_socket.links[0] if surface_output_socket.links else None
+                                currently_connected_socket = current_link.from_socket if current_link else None
+                                currently_connected_node = current_link.from_node if current_link else None
+                                if currently_connected_node == culling_node:
+                                    continue # It's already connected to the culling node
+                                if current_link and currently_connected_socket:
+                                    node_tree.links.remove(current_link)
+                                    if culling_node.inputs[0].links:
+                                        node_tree.links.remove(culling_node.inputs[0].links[0])
+                                    node_tree.links.new(currently_connected_socket, culling_node.inputs[0])
+                                    node_tree.links.new(culling_node.outputs[0], surface_output_socket)
+                            elif output_node:
+                                logger.warning(f"Material \"{material.name}\" does not have a Backface Culling node.")
+                            elif culling_node:
+                                logger.warning(f"Material \"{material.name}\" does not have a Material Output node.")
 
 
             if len(affected_objects) == 0:

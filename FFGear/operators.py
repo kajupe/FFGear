@@ -2623,9 +2623,8 @@ class FFGearAutoMaterial(Operator):
     
     @classmethod
     def poll(cls, context):
-        return (hasattr(context, 'material') and
-                context.material is not None and 
-                hasattr(context.material, "ffgear"))
+        return (hasattr(context, 'selected_objects') and
+                context.selected_objects is not None)
     
     def invoke(self, context, event):
         # Store events
@@ -2633,51 +2632,59 @@ class FFGearAutoMaterial(Operator):
         selected_only = True if event.ctrl else False
         do_full_reset = True if event.alt else False
         
-        # If ctrl, all we care about are the selected objects.
-        if selected_only:
-            objects_to_potentially_manipulate = context.selected_objects
-            if not objects_to_potentially_manipulate:
-                self.report({'WARNING'}, "No objects selected")
-                return {'CANCELLED'}
-        else:
-            objects_to_potentially_manipulate = bpy.data.objects
-
-        # Get the materials to process
-        if affect_all_on_selected:
-            materials_to_process = get_ffgear_materials_on_objects(context.selected_objects, require_mtrl_filepath=True)
-        else:
-            if context.material:
-                materials_to_process = ffgear_material_filtering([context.material], require_mtrl_filepath=True)
+        context.window.cursor_set('WAIT')
+        try:
+            # If ctrl, all we care about are the selected objects.
+            if selected_only:
+                objects_to_potentially_manipulate = context.selected_objects
+                if not objects_to_potentially_manipulate:
+                    self.report({'WARNING'}, "No objects selected")
+                    return {'CANCELLED'}
             else:
-                materials_to_process = []
-            
+                objects_to_potentially_manipulate = bpy.data.objects
 
-        def filter_func(mat):
-            return mat in materials_to_process
+            # Get the materials to process
+            if affect_all_on_selected:
+                materials_to_process = get_ffgear_materials_on_objects(context.selected_objects, require_mtrl_filepath=True)
+            else:
+                if context.material:
+                    materials_to_process = ffgear_material_filtering([context.material], require_mtrl_filepath=True)
+                else:
+                    materials_to_process = []
+                
+
+            def filter_func(mat):
+                return mat in materials_to_process
+                
+            # Collect material slots
+            material_mapping = create_material_mapping(objects_to_potentially_manipulate, filter_func)
             
-        # Collect material slots
-        material_mapping = create_material_mapping(objects_to_potentially_manipulate, filter_func)
-        
-        if not material_mapping:
-            self.report({'WARNING'}, "No matching materials found on any applicable objects")
+            if not material_mapping:
+                self.report({'WARNING'}, "No matching materials found on any applicable objects")
+                return {'CANCELLED'}
+                
+            # Process materials
+            processed, skipped = process_shared_materials(
+                material_mapping=material_mapping,
+                hard_reset=do_full_reset,
+                process_func = lambda mat, ltm, hrs: create_ffgear_material(mat, ltm, hrs)
+            )
+            
+            # Report results
+            if processed > 0:
+                scope = "selected objects" if selected_only else "scene"
+                self.report({'INFO'}, f"Processed {processed} materials in {scope}" +
+                        (f", skipped {skipped}" if skipped > 0 else ""))
+            else:
+                self.report({'WARNING'}, "No materials were processed")
+                
+            return {'FINISHED'}
+        except Exception as e:
+            logger.exception(f"Error during Material setup: {e}")
+            self.report({'ERROR'}, f"An error occurred: {str(e)}")
             return {'CANCELLED'}
-            
-        # Process materials
-        processed, skipped = process_shared_materials(
-            material_mapping=material_mapping,
-            hard_reset=do_full_reset,
-            process_func = lambda mat, ltm, hrs: create_ffgear_material(mat, ltm, hrs)
-        )
-        
-        # Report results
-        if processed > 0:
-            scope = "selected objects" if selected_only else "scene"
-            self.report({'INFO'}, f"Processed {processed} materials in {scope}" +
-                       (f", skipped {skipped}" if skipped > 0 else ""))
-        else:
-            self.report({'WARNING'}, "No materials were processed")
-            
-        return {'FINISHED'}
+        finally:
+            context.window.cursor_set('DEFAULT')
 
 
 

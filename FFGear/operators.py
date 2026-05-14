@@ -576,6 +576,31 @@ def material_name_is_valid(material_name:str, allow_any_name:bool=False):
         return False
 
 
+def material_uses_supported_shader(material:bpy.types.Material, bypass:bool=False) -> bool:
+    """Checks if the material uses a shader package that is supported by FFGear.
+
+    Args:
+        material (bpy.types.Material): The material
+        bypass (bool, optional): If this is True, the function will always return True. Defaults to False.
+
+    Returns:
+        bool: True if the shader package is supported, False otherwise.
+    """
+    if bypass:
+        return True
+    if material:
+        meddle_shaderpackage:str|None = material.get("ShaderPackage", None)
+        if meddle_shaderpackage:
+            if meddle_shaderpackage in [shader_name+".shpk" for shader_name in supported_shaders] or meddle_shaderpackage in supported_shaders:
+                return True
+            else:
+                return False
+        else:
+            # We couldn't read the attribute, maybe it changed names in an update, fallback to name check
+            logger.warning(f"Could not retrieve attribute \"ShaderPackage\" from material \"{material.name}\". If you see this, file a bug report please :)")
+            return material_name_is_valid(material.name, bypass) 
+
+
 def find_related_skin_textures(objects:List[bpy.types.Object]):
     """
     Looks for skin textures among multiple objects
@@ -594,9 +619,9 @@ def find_related_skin_textures(objects:List[bpy.types.Object]):
     
     logger.debug(f"Looking for in-use skin textures among these objects' materials: {[obj.name for obj in objects]}")
     
-    diffuse_texture:bpy.types.Image = None
-    normal_texture:bpy.types.Image = None
-    mask_texture:bpy.types.Image = None
+    diffuse_texture:bpy.types.Image|None = None
+    normal_texture:bpy.types.Image|None = None
+    mask_texture:bpy.types.Image|None = None
     
     regex_a_pattern = r"(?<![a-zA-Z0-9])a(?![a-zA-Z0-9])" # An "a" without an alphabetical character or a number before or after it
 
@@ -609,8 +634,8 @@ def find_related_skin_textures(objects:List[bpy.types.Object]):
                 if "skin" in material.name.lower() and not material in all_potential_skin_materials:
                     all_potential_skin_materials.append(material)
 
-    texture_groupings_with_a:List[Tuple[bpy.types.Image]] = []
-    texture_groupings_without_a:List[Tuple[bpy.types.Image]] = []
+    texture_groupings_with_a:List[Tuple[bpy.types.Image|None,bpy.types.Image|None,bpy.types.Image|None]] = []
+    texture_groupings_without_a:List[Tuple[bpy.types.Image|None,bpy.types.Image|None,bpy.types.Image|None]] = []
 
     # Search for materials with a standalone "a"
     logger.debug("Looking among materials with a standalone 'a' and 'skin' in the name.")
@@ -618,20 +643,21 @@ def find_related_skin_textures(objects:List[bpy.types.Object]):
         if re.search(regex_a_pattern, material.name.lower()):
             logger.debug(f"Material \"{material.name}\" matched! Checking for texture nodes.")
             node_tree = material.node_tree
-            for node in node_tree.nodes:
-                if node.type == 'TEX_IMAGE':
-                    logger.debug(f"Found image texture node: {node.name} (label: {node.label})")
-                    node_name_lower = node.name.lower()
-                    node_label_lower = node.label.lower()
-                    if "diffuse" in node_name_lower or "diffuse" in node_label_lower:
-                        diffuse_texture = node.image
-                        logger.debug("Found diffuse texture!")
-                    elif "normal" in node_name_lower or "normal" in node_label_lower:
-                        normal_texture = node.image
-                        logger.debug("Found normal texture!")
-                    elif "mask" in node_name_lower or "mask" in node_label_lower:
-                        mask_texture = node.image
-                        logger.debug("Found mask texture!")
+            if node_tree:
+                for node in node_tree.nodes:
+                    if node.type == 'TEX_IMAGE':
+                        logger.debug(f"Found image texture node: {node.name} (label: {node.label})")
+                        node_name_lower = node.name.lower()
+                        node_label_lower = node.label.lower()
+                        if "diffuse" in node_name_lower or "diffuse" in node_label_lower:
+                            diffuse_texture = node.image
+                            logger.debug("Found diffuse texture!")
+                        elif "normal" in node_name_lower or "normal" in node_label_lower:
+                            normal_texture = node.image
+                            logger.debug("Found normal texture!")
+                        elif "mask" in node_name_lower or "mask" in node_label_lower:
+                            mask_texture = node.image
+                            logger.debug("Found mask texture!")
 
             # If we've found all the textures, call it done here.
             if diffuse_texture and normal_texture and mask_texture:
@@ -650,20 +676,21 @@ def find_related_skin_textures(objects:List[bpy.types.Object]):
     for material in all_potential_skin_materials:
         logger.debug(f"Checking \"{material.name}\"")
         node_tree = material.node_tree
-        for node in node_tree.nodes:
-            if node.type == 'TEX_IMAGE':
-                logger.debug(f"Found image texture node: {node.name} (label: {node.label})")
-                node_name_lower = node.name.lower()
-                node_label_lower = node.label.lower()
-                if "diffuse" in node_name_lower or "diffuse" in node_label_lower:
-                    diffuse_texture = node.image
-                    logger.debug("Found diffuse texture!")
-                elif "normal" in node_name_lower or "normal" in node_label_lower:
-                    normal_texture = node.image
-                    logger.debug("Found normal texture!")
-                elif "mask" in node_name_lower or "mask" in node_label_lower:
-                    mask_texture = node.image
-                    logger.debug("Found mask texture!")
+        if node_tree:
+            for node in node_tree.nodes:
+                if node.type == 'TEX_IMAGE':
+                    logger.debug(f"Found image texture node: {node.name} (label: {node.label})")
+                    node_name_lower = node.name.lower()
+                    node_label_lower = node.label.lower()
+                    if "diffuse" in node_name_lower or "diffuse" in node_label_lower:
+                        diffuse_texture = node.image
+                        logger.debug("Found diffuse texture!")
+                    elif "normal" in node_name_lower or "normal" in node_label_lower:
+                        normal_texture = node.image
+                        logger.debug("Found normal texture!")
+                    elif "mask" in node_name_lower or "mask" in node_label_lower:
+                        mask_texture = node.image
+                        logger.debug("Found mask texture!")
 
         # If we've found all the textures, call it done here.
         # This implies we found a full set here, but not among 'a' materials, so we'll prefer this.
@@ -681,7 +708,7 @@ def find_related_skin_textures(objects:List[bpy.types.Object]):
     # If there is no set of 'a' textures, return the largest non-'a' set.
     logger.debug(f"No full set of textures was found, the longest 'a' set will be returned.")
     longest_length = 0
-    longest_group:Tuple[bpy.types.Image] = (None, None, None)
+    longest_group:Tuple[bpy.types.Image|None,bpy.types.Image|None,bpy.types.Image|None] = (None, None, None)
     if len(texture_groupings_with_a) > 0:
         for texture_group in texture_groupings_with_a:
             length = 0
@@ -774,7 +801,7 @@ def ffgear_material_filtering(materials:List[bpy.types.Material], require_valid_
     valid_materials = []
     for material in materials:
         if (hasattr(material, "ffgear") and 
-            (material_name_is_valid(material.name) if require_valid_name else True) and 
+            (material_uses_supported_shader(material) if require_valid_name else True) and 
             (material.ffgear.mtrl_filepath != "" if require_mtrl_filepath else True) and
             (material.ffgear.is_created == required_created_status if required_created_status != None else True)):
 
@@ -2137,12 +2164,12 @@ class FFGearFetchMtrlTextures(Operator):
         mtrl_filepath = bpy.path.abspath(context.material.ffgear.mtrl_filepath)
         mtrl_directory = Path(mtrl_filepath).parent
         # Check if any part of the path is "cache", we likely want to use that if that's the case
-        if "\cache\\" in mtrl_filepath:
-            index = mtrl_filepath.find("\cache\\")
-            chache_dir = mtrl_filepath[:index + len("\cache\\")]
+        if "\\cache\\" in mtrl_filepath:
+            index = mtrl_filepath.find("\\cache\\")
+            chache_dir = mtrl_filepath[:index + len("\\cache\\")]
             logger.debug(f"Cache directory: {chache_dir}")
         else:
-            logger.debug(f'Tried auto-detecting a path to check for textures in but couldn\'t find one with "\cache\\".')
+            logger.debug(f'Tried auto-detecting a path to check for textures in but couldn\'t find one with "\\cache\\".')
         
         try:
             # Read MTRL data
@@ -2282,9 +2309,9 @@ class FFGearFetchMeddleTextures(Operator):
                         if path_to_check != None and not found_path: # If we already found one, skip. And it has to be a valid path.
                             found_path = path_to_check
                     if found_path:
-                        if "\cache\\" in found_path:
-                            index = found_path.find("\cache\\")
-                            self.directory = found_path[:index + len("\cache\\")]
+                        if "\\cache\\" in found_path:
+                            index = found_path.find("\\cache\\")
+                            self.directory = found_path[:index + len("\\cache\\")]
                 except Exception as e:
                     logger.warning(f"Could not calculate meddle cache path from existing paths: {e}")
 
@@ -2813,6 +2840,129 @@ class FFGearUseMeddleColorData(Operator):
 
 
 
+class FFGearOffsetAlongNormals(Operator):
+    """Apply a Geometry Nodes modifier to the object, offsetting its surface by a tiny amount to avoid overlapping faces and visual artifacting in Cycles.
+    Hold Shift to affect all selected objects with at least one material using a supported shader type.
+    Hold Ctrl to skip connecting FFGear materials to the Backface Culling node"""
+    bl_idname = "ffgear.offset_along_normals"
+    bl_label = "Offset Along Normals"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    affect_all_selected: bpy.props.BoolProperty(
+        name="Affect All Selected",
+        description="Apply this to all selected objects with an FFGear material",
+        default=False
+    )
+
+    do_not_enable_material_backface_culling: bpy.props.BoolProperty(
+        name="Do not enable Material Backface Culling",
+        description="Skips connecting FFGear material's shader output to the Backface Culling node",
+        default=False
+    )
+
+    @classmethod
+    def poll(cls, context):
+        # Poll checking context for when the operator is called from the UI
+        return (hasattr(context, 'material') and
+                context.material is not None) # We don't check for valid material names here to allow TexTools users to use it, and manual application
+    
+    def execute(self, context):
+        
+        # Check if the node group exists and if not, append it
+        offset_normals_group:bpy.types.NodeTree|None = None
+        expected_node_group_name = "FFGear Offset Along Normals"
+        if expected_node_group_name in bpy.data.node_groups:
+            # Great, use that one
+            offset_normals_group = bpy.data.node_groups[expected_node_group_name]
+        else:
+            # Check if there's like a .001 or something
+            for node_group in bpy.data.node_groups:
+                if node_group.name.startswith(expected_node_group_name) and not offset_normals_group:
+                    offset_normals_group = node_group
+        
+        if not offset_normals_group:
+            # It's not in the file, append it
+            library_path = bpy.path.abspath(bpy.path.native_pathsep(os.path.join(os.path.dirname(__file__), "assets", "material_library.blend"))) # Material library also has the geo-node group for now
+            with bpy.data.libraries.load(library_path, link=False) as (data_from, data_to):
+                if expected_node_group_name not in data_from.node_groups:
+                    logger.error(f"Node Group \"{expected_node_group_name}\" not found in library")
+                    self.report({'ERROR'}, f"Node Group \"{expected_node_group_name}\" not found in library")
+                    return {'FINISHED'}
+                data_to.node_groups = [expected_node_group_name]
+            # Get a reference to the newly appended material
+            offset_normals_group = data_to.node_groups[0]
+
+        # Should have the node group here
+        if offset_normals_group:
+            # Find objects that should get it
+            affected_objects:list[bpy.types.Object] = []
+            affected_materials:list[bpy.types.Material] = []
+            for obj in (bpy.context.selected_objects if self.affect_all_selected else [bpy.context.active_object]):
+                if obj:
+                    for matslot in obj.material_slots:
+                        if (matslot.material and
+                           (material_uses_supported_shader(matslot.material) or (hasattr(matslot.material, "ffgear") and matslot.material.ffgear.is_created)) and # Material is supported or is already an FFGear material
+                           (matslot.material.get("RenderBackfaces", True) == False)): # Material should have backface culling, since if it doesn't there won't be overlapping faces
+                            if not obj in affected_objects:
+                                affected_objects.append(obj)
+                            if not matslot.material in affected_materials:
+                                affected_materials.append(matslot.material)
+            
+            for obj in affected_objects:
+                # Check if it already has the modifier
+                exists = False
+                for modifier in obj.modifiers:
+                    if modifier.type == "NODES" and modifier.node_group.name.startswith(expected_node_group_name):
+                        modifier.show_viewport = True
+                        modifier.show_render = True
+                        exists = True
+                # If it doesn't, add it
+                if not exists:   
+                    modifier = obj.modifiers.new(expected_node_group_name, "NODES")
+                    modifier.node_group = offset_normals_group
+                # Go through the materials and, unless we're ignoring it, connect the Backface Culling node
+                if not self.do_not_enable_material_backface_culling:
+                    for material in affected_materials:
+                        node_tree = material.node_tree
+                        if node_tree:
+                            nodes = node_tree.nodes
+                            output_node = nodes.get("Material Output") # Type: ShaderNodeOutputMaterial
+                            culling_node = nodes.get("Backface Culling")
+                            if output_node and culling_node:
+                                surface_output_socket = output_node.inputs["Surface"]
+                                current_link = surface_output_socket.links[0] if surface_output_socket.links else None
+                                currently_connected_socket = current_link.from_socket if current_link else None
+                                currently_connected_node = current_link.from_node if current_link else None
+                                if currently_connected_node == culling_node:
+                                    continue # It's already connected to the culling node
+                                if current_link and currently_connected_socket:
+                                    node_tree.links.remove(current_link)
+                                    if culling_node.inputs[0].links:
+                                        node_tree.links.remove(culling_node.inputs[0].links[0])
+                                    node_tree.links.new(currently_connected_socket, culling_node.inputs[0])
+                                    node_tree.links.new(culling_node.outputs[0], surface_output_socket)
+                            elif output_node:
+                                logger.warning(f"Material \"{material.name}\" does not have a Backface Culling node.")
+                            elif culling_node:
+                                logger.warning(f"Material \"{material.name}\" does not have a Material Output node.")
+
+
+            if len(affected_objects) == 0:
+                self.report({"INFO"}, "Could not add modifier to any objects") # If no materials are using supported shaders
+            elif len(affected_objects) == 1:
+                self.report({"INFO"}, "Offset the mesh of 1 object")
+            elif len(affected_objects) > 1:
+                self.report({"INFO"}, f"Offset the mesh of {len(affected_objects)} objects")
+        
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        self.affect_all_selected = event.shift
+        self.do_not_enable_material_backface_culling = event.ctrl
+        return self.execute(context)
+
+
+
 #¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
 # REGISTER AND UNREGISTER
 #¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
@@ -2832,8 +2982,10 @@ def register():
     # bpy.utils.register_class(FFGearUpdateAllRamps)
     bpy.utils.register_class(FFGearGetDyesFromMeddle)
     bpy.utils.register_class(FFGearUseMeddleColorData)
+    bpy.utils.register_class(FFGearOffsetAlongNormals)
 
 def unregister():
+    bpy.utils.unregister_class(FFGearOffsetAlongNormals)
     bpy.utils.unregister_class(FFGearUseMeddleColorData)
     bpy.utils.unregister_class(FFGearGetDyesFromMeddle)
     # bpy.utils.unregister_class(FFGearUpdateAllRamps)

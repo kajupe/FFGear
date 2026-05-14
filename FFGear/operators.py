@@ -1808,8 +1808,9 @@ def create_ffgear_material(source_material:bpy.types.Material, local_template_ma
         if mtrl_data and not material_is_ancient:
             if shader_name == "characterlegacy.shpk":
                 main_shader_node_inputs.get('Legacy Roughness Tweak').default_value = 0.5   # Enable the Legacy Roughness Tweak in the Shader (lowers roughness where specular is high)
-                main_shader_node_inputs.get('Specularity Mult').default_value = 1.5         # Increase the specular map a bit
-                main_shader_node_inputs.get('Roughness Mult').default_value = 0.4           # Lower roughness is often better on legacy shaders
+                main_shader_node_inputs.get('Roughness Control').default_value = -1.0       # Use only Texture Data for Roughness
+                main_shader_node_inputs.get('Specularity Mult').default_value = 3.0         # Increase the specular map a lot
+                main_shader_node_inputs.get('Roughness Mult').default_value = 0.55          # Lower roughness is often better on legacy shaders
                 main_shader_node_inputs.get('Metallic Mult').default_value = 0              # Metallic should not be used on legacy shaders. Normally it's 0 anyways but just in case, I've seen it get an incorrect value when .mtrl is modded before.
                 main_shader_node_inputs.get('Diffuse Gamma').default_value = 1.1            # Lower gamma a bit from 1.2 to brighten it since lower roughness often darkens
                 main_shader_node_inputs.get('Minimum Roughness').default_value = 0.2        # Some legacy things become *too* shiny, though they're generally matte. This helps a little.

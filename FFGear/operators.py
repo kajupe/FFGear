@@ -1811,7 +1811,6 @@ def create_ffgear_material(source_material:bpy.types.Material, local_template_ma
                 main_shader_node_inputs.get('Roughness Control').default_value = -1.0       # Use only Texture Data for Roughness
                 main_shader_node_inputs.get('Specularity Mult').default_value = 3.0         # Increase the specular map a lot
                 main_shader_node_inputs.get('Roughness Mult').default_value = 0.55          # Lower roughness is often better on legacy shaders
-                main_shader_node_inputs.get('Metallic Mult').default_value = 0              # Metallic should not be used on legacy shaders. Normally it's 0 anyways but just in case, I've seen it get an incorrect value when .mtrl is modded before.
                 main_shader_node_inputs.get('Diffuse Gamma').default_value = 1.1            # Lower gamma a bit from 1.2 to brighten it since lower roughness often darkens
                 main_shader_node_inputs.get('Minimum Roughness').default_value = 0.2        # Some legacy things become *too* shiny, though they're generally matte. This helps a little.
             
@@ -1822,11 +1821,11 @@ def create_ffgear_material(source_material:bpy.types.Material, local_template_ma
 
         if material_is_ancient:
             main_shader_node_inputs.get('Specularity Mult').default_value = 1.5
-            main_shader_node_inputs.get('Roughness Mult').default_value = 0.5
-            main_shader_node_inputs.get('Metallic Mult').default_value = 0 
+            main_shader_node_inputs.get('Roughness Mult').default_value = 1
             main_shader_node_inputs.get('Diffuse Gamma').default_value = 1.1
-            main_shader_node_inputs.get('Minimum Roughness').default_value = 0.4
+            main_shader_node_inputs.get('Minimum Roughness').default_value = 0.2
             main_shader_node_inputs.get('Material Rgh Influence').default_value = 0
+            main_shader_node_inputs.get('Roughness Control').default_value = -1.0
             main_shader_node_inputs.get('Ancient').default_value = 1
 
         if shader_name == "charactertransparency.shpk":

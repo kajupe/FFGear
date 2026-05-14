@@ -2397,9 +2397,8 @@ class FFGearMeddleSetup(Operator):
 
     @classmethod
     def poll(cls, context):
-        return (hasattr(context, 'material') and
-                context.material is not None and 
-                hasattr(context.material, "ffgear"))
+        return (hasattr(context, 'selected_objects') and
+                context.selected_objects is not None)
     
     # Good, could fail if the paths update from cache/chara... to something else
     def find_all_mtrl_files(self, cache_dir):
@@ -2507,93 +2506,101 @@ class FFGearMeddleSetup(Operator):
         return success, message, new_material
 
     def execute(self, context):
-        if not self.directory:
-            self.report({'ERROR'}, "No cache directory selected")
-            return {'CANCELLED'}
-        
-        # # PROFILING START
-        # pr = cProfile.Profile()
-        # pr.enable()
-
-        # If a file was (somehow) selected rather than a directory
-        if not os.path.isdir(self.directory):
-            self.directory = os.path.dirname(self.directory)
-
-        cache_dir = Path(self.directory)
-        if not cache_dir.exists():
-            self.report({'ERROR'}, "Selected directory does not exist")
-            return {'CANCELLED'}
-        
-        # Clear the cache at the start of execution
-        self.mtrl_cache.clear()
-        
-        # First, collect all materials from selected objects that we want to process
-        source_materials = set()
-        already_created_check = False
-        for obj in context.selected_objects:
-            for slot in obj.material_slots:
-                if (slot.material and material_uses_supported_shader(slot.material)):
-                    if slot.material.ffgear.is_created:
-                        already_created_check = True
-                    else:
-                        source_materials.add(slot.material)
-
-        if not source_materials:
-            if already_created_check:
-                self.report({'WARNING'}, "Only found materials that are already created")
-            else:
-                self.report({'WARNING'}, "No valid materials found on selected objects")
-            return {'CANCELLED'}
-
-        # Get the objects to process these materials on
-        target_objects = context.selected_objects if self.use_selected else bpy.data.objects
-        
-        # Create filter function that only accepts the source materials
-        def filter_func(mat):
-            return mat in source_materials
-
-        # Collect material slots
-        material_mapping = create_material_mapping(
-            target_objects, 
-            filter_func
-        )
-
-        if not material_mapping:
-            self.report({'WARNING'}, "No valid materials found to process")
-            return {'CANCELLED'}
-        
-        # Process materials
-        processed, skipped = process_shared_materials(
-            material_mapping,
-            hard_reset=False,
-            process_func = lambda mat, ltm, hrs: self.process_meddle_material(mat, ltm, hrs)
-        )
-
-        # Report results
-        if processed > 0:
-            scope = "selected objects" if self.use_selected else "all objects"
-            self.report({'INFO'}, f"Processed {len(source_materials)} materials across {scope}" + 
-                    (f", skipped {skipped}" if skipped > 0 else ""))
-        else:
-            if self.mtrl_cache == {}:
-                # haha amogus ඞ
-                self.report({'WARNING'}, "No MTRL files found! Make sure those are cached in Meddle!")
-            else:
-                self.report({'WARNING'}, "No materials were processed")
+        context.window.cursor_set('WAIT')
+        try:
+            if not self.directory:
+                self.report({'ERROR'}, "No cache directory selected")
+                return {'CANCELLED'}
             
-        # # PROFILING END
-        # pr.disable()
-        # # Analysis
-        # s = io.StringIO()
-        # # Sort stats by cumulative time spent in function
-        # sortby = pstats.SortKey.TIME
-        # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-        # ps.print_stats()
-        # print("\n--- PROFILING RESULTS ---")
-        # print(s.getvalue())
-        # print("--- END PROFILING RESULTS ---\n")
+            # # PROFILING START
+            # pr = cProfile.Profile()
+            # pr.enable()
 
-        return {'FINISHED'}
+            # If a file was (somehow) selected rather than a directory
+            if not os.path.isdir(self.directory):
+                self.directory = os.path.dirname(self.directory)
+
+            cache_dir = Path(self.directory)
+            if not cache_dir.exists():
+                self.report({'ERROR'}, "Selected directory does not exist")
+                return {'CANCELLED'}
+            
+            # Clear the cache at the start of execution
+            self.mtrl_cache.clear()
+            
+            # First, collect all materials from selected objects that we want to process
+            source_materials = set()
+            already_created_check = False
+            for obj in context.selected_objects:
+                for slot in obj.material_slots:
+                    if (slot.material and material_name_is_valid(slot.material.name)):
+                        if slot.material.ffgear.is_created:
+                            already_created_check = True
+                        else:
+                            source_materials.add(slot.material)
+
+            if not source_materials:
+                if already_created_check:
+                    self.report({'WARNING'}, "Only found materials that are already created")
+                else:
+                    self.report({'WARNING'}, "No valid materials found on selected objects")
+                return {'CANCELLED'}
+
+            # Get the objects to process these materials on
+            target_objects = context.selected_objects if self.use_selected else bpy.data.objects
+            
+            # Create filter function that only accepts the source materials
+            def filter_func(mat):
+                return mat in source_materials
+
+            # Collect material slots
+            material_mapping = create_material_mapping(
+                target_objects, 
+                filter_func
+            )
+
+            if not material_mapping:
+                self.report({'WARNING'}, "No valid materials found to process")
+                return {'CANCELLED'}
+            
+            # Process materials
+            processed, skipped = process_shared_materials(
+                material_mapping,
+                hard_reset=False,
+                process_func = lambda mat, ltm, hrs: self.process_meddle_material(mat, ltm, hrs)
+            )
+
+            # Report results
+            if processed > 0:
+                scope = "selected objects" if self.use_selected else "all objects"
+                self.report({'INFO'}, f"Processed {len(source_materials)} materials across {scope}" + 
+                        (f", skipped {skipped}" if skipped > 0 else ""))
+            else:
+                if self.mtrl_cache == {}:
+                    # haha amogus ඞ
+                    self.report({'WARNING'}, "No MTRL files found! Make sure those are cached in Meddle!")
+                else:
+                    self.report({'WARNING'}, "No materials were processed")
+                
+            # # PROFILING END
+            # pr.disable()
+            # # Analysis
+            # s = io.StringIO()
+            # # Sort stats by cumulative time spent in function
+            # sortby = pstats.SortKey.TIME
+            # ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+            # ps.print_stats()
+            # print("\n--- PROFILING RESULTS ---")
+            # print(s.getvalue())
+            # print("--- END PROFILING RESULTS ---\n")
+
+            return {'FINISHED'}
+        except Exception as e:
+            logger.exception(f"Error during Meddle setup: {e}")
+            self.report({'ERROR'}, f"An error occurred: {str(e)}")
+            return {'CANCELLED'}
+        finally:
+            context.window.cursor_set('DEFAULT')
     
     def invoke(self, context, event):
         self.use_selected = event.ctrl

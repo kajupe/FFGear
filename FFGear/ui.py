@@ -94,7 +94,6 @@ class FFGearMaterialPanel(bpy.types.Panel):
                         icon='NODE_MATERIAL')
 
         # Normal Offset Button
-        col = setup_box.column(align=True)
         row = col.row(align=True)
         row.operator("ffgear.offset_along_normals", icon='ORIENTATION_NORMAL')
 

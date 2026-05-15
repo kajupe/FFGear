@@ -568,7 +568,7 @@ def material_name_is_valid(material_name:str, allow_any_name:bool=False):
             return True # For when creating materials manually, you pressed the button so now you will be held responsible
         if (any(shader_name+'.shpk' in material_name for shader_name in supported_shaders) or # 0.1.29 behavior
             any('_'+shader_name+'_' in material_name for shader_name in supported_shaders)): # pre 0.1.29 behavior
-                return True
+            return True
         else:
             return False
     else:

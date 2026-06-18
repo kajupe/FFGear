@@ -477,7 +477,7 @@ def construct_false_meddle_mtrl_data(material: bpy.types.Material) -> Optional[D
     # Backface Culling
     show_backfaces = material.get("RenderBackfaces", None)
     if show_backfaces != None:
-        if show_backfaces:
+        if not show_backfaces:
             flags |= mtrl_handler.MaterialFlags.HideBackfaces
     else: # Couldn't get from meddle, assume we want to hide them
         logger.warning(f"Couldn't read flag RenderBackfaces from Meddle data when constructing false mtrl data, hiding by default. Material: {material.name}")
@@ -1183,9 +1183,6 @@ def update_color_ramps(material:bpy.types.Material, mtrl_data:dict, hard_reset=F
         # Used to skip steps later on
         is_created = material.ffgear.is_created
 
-        # Personally mapped values that should be closer to the exact breaking points of the textures. Put just to the left of the breaking point of the Picto 100 Top's texture but they could vary a little so constant interpolation is probably still bad.
-        custom_ramp_positions = [0, 0.0703, 0.1328, 0.2031, 0.2656, 0.3359, 0.3984, 0.4687, 0.5312, 0.5976, 0.6640, 0.7304, 0.7968, 0.8632, 0.9296, 1] # 16 values total
-
         # --- Pre-process colorset data ---
         # Group rows by the 'group' key for O(1) lookup later, instead of O(N) filtering per node.
         # It's just each row put in a dict as a list under its group as the key. {"A": [row data], "B": [row data]}
@@ -1242,15 +1239,12 @@ def update_color_ramps(material:bpy.types.Material, mtrl_data:dict, hard_reset=F
                 continue # Skip if this group has no data
             
             len_group_rows = len(group_rows)
-            use_custom_ramp_positions = False
-            if len_group_rows == len(custom_ramp_positions):
-                use_custom_ramp_positions = True
 
             ##### ELEMENT REUSE #####
             # Check if we can re-use the elements in the color ramp rather than remove and re-add them
             use_old_elements = True
             ramp_has_mismatched_element_count = len(node.color_ramp.elements) != len_group_rows
-            if not is_created or not use_custom_ramp_positions or ramp_has_mismatched_element_count or hard_reset: # On first execution or if we're somehow dealing with not 16 elements
+            if not is_created or ramp_has_mismatched_element_count or hard_reset: # On first execution or if we're somehow dealing with not 16 elements
                 # Clear existing elements after the first
                 while len(node.color_ramp.elements) > 1:
                     node.color_ramp.elements.remove(node.color_ramp.elements[-1])
@@ -1311,10 +1305,8 @@ def update_color_ramps(material:bpy.types.Material, mtrl_data:dict, hard_reset=F
                 if use_old_elements: # Will always fail on a hard reset
                     element = node.color_ramp.elements[i] # The element exists, reference it directly
                 else:
-                    if use_custom_ramp_positions:
-                        position = custom_ramp_positions[i]
-                    else:
-                        position = i / (len_group_rows - 1) if len_group_rows > 1 else 0 # Basically i / 15 so index 15 (entry 16) equals 1, but dynamic so it's cooler
+                    half_a_step_size = 1 / (len_group_rows - 1) * 0.5 # Offset the value half a step to the left, so that the "sampling point" is right inbetween two points rather than on top of it. Then we use Constant sampling.
+                    position = max((i / (len_group_rows - 1)) - half_a_step_size, 0) if len_group_rows > 1 else 0 # Basically i / 15 so index 15 (entry 16) equals 1, but dynamic so it's cooler. First index will always be at pos 0.
 
                     # Create new element if needed
                     if i > 0:

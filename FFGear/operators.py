@@ -1723,6 +1723,7 @@ def create_ffgear_material(source_material:bpy.types.Material, local_template_ma
             else:
                 # Fallback: Find based on other material's skin textures
                 # This method prioritizes using the 'a' skin which may be incorrect for some modded stockings.
+                source_material.ffgear_warnings.stocking_uncertain_textures = True
                 logger.debug("Skin textures for stockings could not be found through Meddle properties. Looking using other methods.")
                 potential_parents:List[bpy.types.Object] = []
                 users_of_material = find_users_of_material(source_material) # Can't be template mat since that hasn't been applied to any objects yet
@@ -1749,6 +1750,11 @@ def create_ffgear_material(source_material:bpy.types.Material, local_template_ma
                     setup_image_node(nodes, skin_normal_texture, "SKIN NORMAL", direct_img_datablock=True)
                 if skin_mask_texture:
                     setup_image_node(nodes, skin_mask_texture, "SKIN MASK", direct_img_datablock=True)
+                
+                # If we're missing any, report that INSTEAD
+                if not skin_diffuse_texture or not skin_normal_texture or not skin_mask_texture:
+                    source_material.ffgear_warnings.stocking_uncertain_textures = False
+                    source_material.ffgear_warnings.stocking_missing_textures = True
         
 
             def _property_value_to_color(propval):
@@ -1833,6 +1839,7 @@ def create_ffgear_material(source_material:bpy.types.Material, local_template_ma
         
         if false_mtrl_data_is_used:
             template_mat.ffgear.created_without_mtrl = True
+            template_mat.ffgear_warnings.created_without_mtrl = True
         
         if shader_name:
             message = "" if shader_name in tuple(shader + '.shpk' for shader in supported_shaders) else "Shader is of an unsupported type, results may not be as expected!"
@@ -2511,6 +2518,11 @@ class FFGearMeddleSetup(Operator):
             # If a file was (somehow) selected rather than a directory
             if not os.path.isdir(self.directory):
                 self.directory = os.path.dirname(self.directory)
+            # If the folder name isn't "cache"
+            if os.path.basename(self.directory) != "cache":
+                appended_cache_dir = os.path.join(self.directory, "cache")
+                if os.path.exists(appended_cache_dir):
+                    self.directory = appended_cache_dir
 
             cache_dir = Path(self.directory)
             if not cache_dir.exists():

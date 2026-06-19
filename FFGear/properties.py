@@ -554,6 +554,45 @@ class FFGearMaterialProperties(bpy.types.PropertyGroup):
         description="Materials whose dyes are linked to this one"
     )
 
+
+class FFGearWarnings(bpy.types.PropertyGroup):
+    """Dummy Properties that act as warnings for FFGear"""
+    created_without_mtrl: BoolProperty(
+        name="Created Without MTRL File",
+        description="This material was created without access to direct .mtrl data. Dyeing is disabled and results may look worse than desired",
+        default=False
+    )
+    stocking_uncertain_textures: BoolProperty(
+        name="Stocking Uncertain Texture(s)",
+        description="Could not find any specified textures for the skin material below the stocking from Meddle, and had to guess instead. You might want to double-check that it looks right",
+        default=False
+    )
+    stocking_missing_textures: BoolProperty(
+        name="Stocking Missing Texture(s)",
+        description="Could not find all textures for the skin material below the stocking",
+        default=False
+    )
+
+
+class FFGearUIProperties(bpy.types.PropertyGroup):
+    """Properties for tracking the state of the FFGear UI"""
+    setup_panel_open: BoolProperty(
+        name="Setup Panel",
+        description="For material creation",
+        default=True
+    )
+    dye_panel_open: BoolProperty(
+        name="Dye Panel",
+        description="For material dyeing",
+        default=True
+    )
+    warnings_panel_open: BoolProperty(
+        name="Warnings Panel",
+        description="For knowing what went wrong",
+        default=True
+    )
+
+
 def register():
     global preview_collections
 
@@ -575,6 +614,10 @@ def register():
     bpy.utils.register_class(LinkedMaterialItem)
     bpy.utils.register_class(FFGearMaterialProperties)
     bpy.types.Material.ffgear = PointerProperty(type=FFGearMaterialProperties)
+    bpy.utils.register_class(FFGearWarnings)
+    bpy.types.Material.ffgear_warnings = PointerProperty(type=FFGearWarnings)
+    bpy.utils.register_class(FFGearUIProperties)
+    bpy.types.Material.ffgear_ui = PointerProperty(type=FFGearUIProperties)
 
 def unregister():
     global preview_collections
@@ -585,6 +628,12 @@ def unregister():
     preview_collections.clear()
     
     # Unregister classes
+    if hasattr(bpy.types.Material, 'ffgear_ui'):
+        del bpy.types.Material.ffgear_ui
+    bpy.utils.unregister_class(FFGearUIProperties)
+    if hasattr(bpy.types.Material, 'ffgear_warnings'):
+        del bpy.types.Material.ffgear_warnings
+    bpy.utils.unregister_class(FFGearWarnings)
     if hasattr(bpy.types.Material, 'ffgear'):
         del bpy.types.Material.ffgear
     bpy.utils.unregister_class(FFGearMaterialProperties)

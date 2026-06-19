@@ -7,7 +7,7 @@
       "id": "FFGear",
       "name": "FFGear",
       "tagline": "Handles material creation for FFXIV gear",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "type": "add-on",
       "maintainer": "Kaj <kaj.blue>",
       "license": [
@@ -23,9 +23,9 @@
       "tags": [
         "Material"
       ],
-      "archive_url": "https://github.com/kajupe/FFGear/releases/download/1.3.0/FFGear-1.3.0.zip",
-      "archive_size": 1693515,
-      "archive_hash": "sha256:4197b57d85573cdcf0a11746ec828f55aeec8a744cbbd013c0024580a228264d"
+      "archive_url": "https://github.com/kajupe/FFGear/releases/download/1.3.1/FFGear-1.3.1.zip",
+      "archive_size": 1708892,
+      "archive_hash": "sha256:41d381fde74c4b34e0356d08c43e473d5d2f86f7ededf895e0979223e84ce297"
     }
   ]
 }

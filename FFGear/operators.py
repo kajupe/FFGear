@@ -477,11 +477,10 @@ def construct_false_meddle_mtrl_data(material: bpy.types.Material) -> Optional[D
     # Backface Culling
     show_backfaces = material.get("RenderBackfaces", None)
     if show_backfaces != None:
-        if not show_backfaces:
-            flags |= mtrl_handler.MaterialFlags.HideBackfaces
+        if show_backfaces:
+            flags |= mtrl_handler.MaterialFlags.RenderBackfaces
     else: # Couldn't get from meddle, assume we want to hide them
         logger.warning(f"Couldn't read flag RenderBackfaces from Meddle data when constructing false mtrl data, hiding by default. Material: {material.name}")
-        flags |= mtrl_handler.MaterialFlags.HideBackfaces
 
 
     #¤¤¤¤¤¤¤¤¤¤¤¤¤¤#
@@ -531,13 +530,13 @@ def apply_material_flags(material, flags):
     applied_flags = []
 
     # Backface Culling
-    if MaterialFlags.HideBackfaces in flags:
+    if not MaterialFlags.RenderBackfaces in flags:
         material.use_backface_culling = True
         nodes = material.node_tree.nodes
         node = nodes.get("Backface Culling")
         if node:
             node.mute = False
-        applied_flags.append("HideBackfaces -> Enabled backface culling")
+        applied_flags.append("not RenderBackfaces -> Enabled backface culling")
     else:
         material.use_backface_culling = False
     
@@ -1334,7 +1333,7 @@ def update_color_ramps(material:bpy.types.Material, mtrl_data:dict, hard_reset=F
         return False
 
 
-def setup_image_node(nodes, filepath:str|bpy.types.Image, label:str, direct_img_datablock:bool=False) -> bpy.types.Node:
+def setup_image_node(nodes, filepath:str|bpy.types.Image, label:str, direct_img_datablock:bool=False) -> bpy.types.Node|None:
     """Setup an image texture node based on a filepath. Tries to use already loaded images first.
 
     Args:
@@ -1346,6 +1345,13 @@ def setup_image_node(nodes, filepath:str|bpy.types.Image, label:str, direct_img_
     Returns:
         bpy.types.Node or None: The found node, if one was found.
     """
+
+    def _find_image_with_matching_path(path:str) -> bpy.types.Image|None:
+        for image_data in bpy.data.images:
+            if image_data.filepath == path:
+                return image_data
+        return None
+
     # Get existing node
     node = nodes.get(label)
     if not node:
@@ -1354,11 +1360,12 @@ def setup_image_node(nodes, filepath:str|bpy.types.Image, label:str, direct_img_
 
     if filepath:
         if not direct_img_datablock:
+            assert type(filepath) == str
             # Check if image is already loaded
             image_name = os.path.basename(filepath)
-            img = bpy.data.images.get(image_name)
+            img = _find_image_with_matching_path(filepath) # Find the image by its file path if it's loaded
             if not img:
-                filepath = helpers.safe_filepath(filepath) # This will help the image LOAD, but cycles will not like it. The image has to be packed.
+                filepath = helpers.safe_filepath(filepath) # This will help the image LOAD even if the path is too long, but cycles will not like it.
                 try:
                     # Load new image
                     img = bpy.data.images.load(bpy.path.abspath(filepath))
@@ -1473,8 +1480,8 @@ def cleanup_duplicate_images(material, hard_reset):
             if node.image:
                 image_name = node.image.name
                 if re.search(regex, image_name): # If an image node has an image with a number suffix (meaning if it's a new version)
-                    nodes_with_new_duplicate_images.append(node)
-    # We add them to a list before changing anything to avoid changing nodes that will be searched in the future before it's their turn
+                    nodes_with_new_duplicate_images.append(node) # We add them to a list before changing anything to avoid changing nodes that will be searched in the future before it's their turn
+
     for node in nodes_with_new_duplicate_images: #only in current material
         image_name = node.image.name
         new_image = bpy.data.images[image_name]
